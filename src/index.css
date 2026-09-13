@@ -1,0 +1,84 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-discord-base: #313338;
+  --color-discord-base-deep: #2b2d31;
+  --color-discord-sidebar: #1e1f22;
+  --color-discord-panel: #383a40;
+  --color-discord-hover: #3f4147;
+  --color-discord-text: #dbdee1;
+  --color-discord-muted: #949ba4;
+  --color-discord-accent: #5865f2;
+  --color-discord-accent-hover: #4752c4;
+  --color-discord-green: #23a559;
+  --color-discord-red: #da373c;
+  --color-discord-yellow: #f0b232;
+
+  --font-sans:
+    'gg sans', 'Noto Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-discord-base);
+  color: var(--color-discord-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Slim, Discord-ish scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1a1b1e transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #1a1b1e;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* CodeMirror should fill its tab and match the dark theme */
+.cm-editor {
+  height: 100%;
+  font-size: 12.5px;
+}
+.cm-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.cm-editor.cm-focused {
+  outline: none !important;
+}
+
+/* Drag ghost + drop-slot feedback */
+.drop-slot-active {
+  outline: 2px dashed var(--color-discord-accent);
+  outline-offset: -2px;
+  background: rgba(88, 101, 242, 0.08) !important;
+}
+.drop-slot-invalid {
+  outline: 2px dashed var(--color-discord-red);
+  outline-offset: -2px;
+  background: rgba(218, 55, 60, 0.08) !important;
+}
+
+/* Spoiler blur for preview */
+.spoiler-blur {
+  filter: blur(6px);
+  transition: filter 0.15s ease;
+}
+.spoiler-blur:hover {
+  filter: blur(3px);
+}
