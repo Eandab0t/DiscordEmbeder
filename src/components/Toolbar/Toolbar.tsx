@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import faviconUrl from '../../assets/favicon.svg';
 import { useBuilderStore, saveSessionToLocalStorage } from '../../store/useBuilderStore';
 import { MAX_TOTAL_COMPONENTS } from '../../model/discord-components-v2-schema';
 import { countComponents } from '../../model/tree';
@@ -77,7 +78,7 @@ export function Toolbar({
   return (
     <header className="flex flex-wrap items-center gap-1.5 border-b border-discord-sidebar bg-discord-sidebar px-3 py-2">
       <div className="mr-2 flex items-center gap-2">
-        <img src="/favicon.svg" alt="" className="h-6 w-6" />
+        <img src={faviconUrl} alt="" className="h-6 w-6" />
         <span className="text-sm font-bold tracking-tight text-discord-text">DiscordEmbeder</span>
         <Badge>Components V2</Badge>
       </div>
