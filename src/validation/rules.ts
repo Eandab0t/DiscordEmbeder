@@ -220,7 +220,10 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
   } else if (total > MAX_TOTAL_COMPONENTS - 5) {
     issues.push({
       severity: 'warning',
-      message: `${total}/${MAX_TOTAL_COMPONENTS} components used — almost at the ceiling.`,
+      message:
+        total === MAX_TOTAL_COMPONENTS
+          ? `${total}/${MAX_TOTAL_COMPONENTS} components — ceiling reached; delete components to add more.`
+          : `${total}/${MAX_TOTAL_COMPONENTS} components used — almost at the ceiling.`,
     });
   }
 
