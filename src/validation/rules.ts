@@ -3,6 +3,7 @@ import {
   ButtonStyle,
   ComponentType,
   MAX_TOTAL_COMPONENTS,
+  SELECT_OPTIONS_CAP,
 } from '../model/discord-components-v2-schema';
 import type { ComponentNode } from '../model/node';
 import { isSectionNode, nodeLabel } from '../model/node';
@@ -214,7 +215,6 @@ export interface ValidationIssue {
 }
 
 const TEXT_DISPLAY_TOTAL_CAP = 4000;
-export const SELECT_OPTIONS_CAP = 25;
 
 export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
