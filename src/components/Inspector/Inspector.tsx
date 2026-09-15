@@ -6,7 +6,8 @@ import {
   type SelectOption,
 } from '../../model/discord-components-v2-schema';
 import { isSectionNode, nodeLabel, type ComponentNode, type DiscordData } from '../../model/node';
-import { Button, Field, ColorInput, IconButton, NumberInput, SelectInput, TextArea, TextInput, Toggle } from '../ui/primitives';
+import { Button, Field, ColorInput, IconButton, NumberInput, SelectInput, TextInput, Toggle } from '../ui/primitives';
+import { DiscordTextTools } from './DiscordTextTools';
 
 interface InspectorProps {
   node: ComponentNode | null;
@@ -143,11 +144,10 @@ function TextDisplayFields({ node, upd }: { node: ComponentNode; upd: Upd }) {
         hint={`${d.content.length}/4000`}
         error={d.content.length > 4000 ? 'Over the per-field sanity limit; total text cap is 4000 across the message.' : undefined}
       >
-        <TextArea
+        <DiscordTextTools
           value={d.content}
           rows={10}
-          onChange={(e) => set('content', e.target.value)}
-          placeholder="Markdown supported: **bold**, *italic*, __underline__, # headings, lists, links…"
+          onChange={(v) => set('content', v)}
         />
       </Field>
       <div className="rounded border border-discord-sidebar bg-discord-sidebar/50 p-2">
