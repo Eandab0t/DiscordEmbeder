@@ -161,7 +161,7 @@ export function checkDrop(
   return { ok: true };
 }
 
-function isTopLevelLegal(type: ComponentType): boolean {
+export function isTopLevelLegal(type: ComponentType): boolean {
   return (
     type === ComponentType.Container ||
     type === ComponentType.Section ||
@@ -172,7 +172,6 @@ function isTopLevelLegal(type: ComponentType): boolean {
     type === ComponentType.ActionRow
   );
 }
-export { isTopLevelLegal };
 
 // ---------------------------------------------------------------------------
 // Tree search helpers
