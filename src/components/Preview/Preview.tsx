@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ComponentType, SeparatorSpacing, ButtonStyle } from '../../model/discord-components-v2-schema';
 import { isSectionNode, type BotIdentity, type ComponentNode } from '../../model/node';
 import { Markdown } from './Markdown';
@@ -36,13 +37,22 @@ export function Preview({ tree, bot }: PreviewProps) {
 }
 
 function BotAvatar({ url, name }: { url: string; name: string }) {
+  const [failed, setFailed] = useState(false);
   const initial = (name || 'A').trim().charAt(0).toUpperCase();
-  return url ? (
-    <img src={url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-  ) : (
-    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-discord-accent text-sm font-bold text-white">
-      {initial}
-    </div>
+  if (!url || failed) {
+    return (
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-discord-accent text-sm font-bold text-white">
+        {initial}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-10 w-10 shrink-0 rounded-full object-cover"
+    />
   );
 }
 
