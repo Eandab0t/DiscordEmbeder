@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { TopLevelComponent } from '../../model/discord-components-v2-schema';
-import { TEMPLATES, type TemplateEntry } from '../../templates';
+import { TEMPLATES } from '../../templates';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { Modal } from './Modal';
 
@@ -44,44 +44,33 @@ export function TemplatesModal({
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {shown.map((t) => (
-            <TemplateCard key={t.id} t={t} onPick={onPick} onClose={onClose} />
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                onPick(t.message.components);
+                onClose();
+              }}
+              className="relative rounded-lg border border-discord-panel bg-discord-base p-3 text-left transition-colors hover:border-discord-accent hover:bg-discord-hover"
+            >
+              <span
+                className={`absolute right-2.5 top-2.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                  t.complexity === 'starter'
+                    ? 'bg-discord-green/15 text-discord-green'
+                    : 'bg-discord-accent/15 text-[#9aa4ff]'
+                }`}
+              >
+                {t.complexity}
+              </span>
+              <span className="text-2xl">{t.glyph}</span>
+              <span className="mt-1 block text-sm font-bold text-discord-text">{t.name}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-discord-muted">
+                {t.description}
+              </span>
+            </button>
           ))}
         </div>
       </div>
     </Modal>
-  );
-}
-
-function TemplateCard({
-  t,
-  onPick,
-  onClose,
-}: {
-  t: TemplateEntry;
-  onPick: (components: TopLevelComponent[]) => void;
-  onClose: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        onPick(t.message.components);
-        onClose();
-      }}
-      className="relative rounded-lg border border-discord-panel bg-discord-base p-3 text-left transition-colors hover:border-discord-accent hover:bg-discord-hover"
-    >
-      <span
-        className={`absolute right-2.5 top-2.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-          t.complexity === 'starter'
-            ? 'bg-discord-green/15 text-discord-green'
-            : 'bg-discord-accent/15 text-[#9aa4ff]'
-        }`}
-      >
-        {t.complexity}
-      </span>
-      <span className="text-2xl">{t.glyph}</span>
-      <span className="mt-1 block text-sm font-bold text-discord-text">{t.name}</span>
-      <span className="mt-0.5 block text-xs leading-relaxed text-discord-muted">{t.description}</span>
-    </button>
   );
 }

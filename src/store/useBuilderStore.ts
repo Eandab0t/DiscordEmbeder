@@ -265,18 +265,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
 
     select: (key) => set({ selectedKey: key }),
 
-    addComponent: (type, target) => {
-      const state = get();
-      const check = checkDrop(state.tree, { type }, target);
-      if (!check.ok) return check;
-      const node = createNode(type);
-      set({
-        ...withHistory(state),
-        tree: insertIntoTree(state.tree, node, target),
-        selectedKey: node.key,
-      });
-      return { ok: true };
-    },
+    addComponent: (type, target) => addComponentOp(get, set, type, target),
 
     moveNode: (key, target) => {
       const state = get();
