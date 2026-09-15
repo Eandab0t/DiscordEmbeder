@@ -27,6 +27,8 @@ export function Toolbar({
   const tree = useBuilderStore((s) => s.tree);
   const bot = useBuilderStore((s) => s.bot);
   const lastSavedAt = useBuilderStore((s) => s.lastSavedAt);
+  const mode = useBuilderStore((s) => s.mode);
+  const setMode = useBuilderStore((s) => s.setMode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,6 +99,26 @@ export function Toolbar({
       </Button>
 
       <div className="mx-1 h-5 w-px bg-discord-panel" />
+
+      <div
+        className="flex overflow-hidden rounded border border-discord-panel"
+        role="group"
+        aria-label="Editor mode"
+        title="Simple shows the everyday blocks; Advanced reveals everything"
+      >
+        {(['simple', 'advanced'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`px-2.5 py-1 text-[11px] font-bold capitalize transition-colors ${
+              mode === m ? 'bg-discord-accent text-white' : 'text-discord-muted hover:bg-discord-hover hover:text-discord-text'
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
 
       <Button onClick={() => onOpenModal('templates')}>✨ Templates</Button>
       <Button onClick={() => onOpenModal('import')}>📥 Import JSON</Button>

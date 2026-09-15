@@ -8,7 +8,7 @@ import type { ComponentNode, DiscordData, ProjectSession } from '../model/node';
 import { isSectionNode } from '../model/node';
 import { createDefaultData } from '../model/defaults';
 import { nextKey, dataToNode, buildPayload, countComponents } from '../model/tree';
-import { checkDrop, findNode, findParentOf, type DropTarget } from '../validation/rules';
+import { checkDrop, findNode, findParentOf, isTopLevelLegal, sectionHasAccessory, type DropTarget } from '../validation/rules';
 
 export interface OperationResult {
   ok: boolean;
@@ -57,6 +57,13 @@ export interface BuilderState {
   // History
   undo: () => void;
   redo: () => void;
+
+  /** 'simple' shows the common blocks; 'advanced' shows everything. */
+  mode: 'simple' | 'advanced';
+  setMode: (mode: 'simple' | 'advanced') => void;
+  /** Click-to-add: appends the block wherever it legally fits, wrapping in
+   *  a parent (Action Row / Section) when the type needs one. */
+  addSmart: (type: ComponentType) => OperationResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +176,55 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     future: [],
   });
 
+  /** Shared body of addComponent/addSmart: check, then insert, optionally post-processing the built tree. */
+  function addComponentOp(
+    get: () => BuilderState,
+    set: (partial: Partial<BuilderState>) => void,
+    type: ComponentType,
+    target: DropTarget,
+    post?: (state: BuilderState) => { tree: ComponentNode[]; selectedKey: string | null } | null,
+  ): OperationResult {
+    const state = get();
+    const check = checkDrop(state.tree, { type }, target);
+    if (!check.ok) return check;
+    const node = createNode(type);
+    let tree = insertIntoTree(state.tree, node, target);
+    let selectedKey: string | null = node.key;
+    if (post) {
+      // Hand the post hook the intermediate tree (with the just-built node),
+      // not get() — the store hasn't been updated yet.
+      const next = post({ ...state, tree, selectedKey: node.key });
+      if (next) {
+        tree = next.tree;
+        selectedKey = next.selectedKey;
+      }
+    }
+    set({ ...withHistory(state), tree, selectedKey });
+    return { ok: true };
+  }
+
+  /** Last node matching `pred`, searched depth-first. */
+  function findLatest(tree: ComponentNode[], pred: (n: ComponentNode) => boolean): ComponentNode | undefined {
+    let found: ComponentNode | undefined;
+    const walk = (list: readonly ComponentNode[]) => {
+      for (const n of list) {
+        if (pred(n)) found = n;
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    return found;
+  }
+
+  /** Does this Action Row have room for one more of `type`? */
+  function rowHasRoom(row: ComponentNode, type: ComponentType): boolean {
+    if (row.children.length >= 5) return false;
+    if (type === ComponentType.Button) {
+      return row.children.every((c) => c.data.type === ComponentType.Button);
+    }
+    return row.children.length === 0;
+  }
+
   /** Keep the current selection if it still exists in `tree`; else fall back to `fallback`. */
   const resolveSelection = (
     tree: ComponentNode[],
@@ -190,6 +246,22 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     past: [],
     future: [],
     lastSavedAt: null,
+
+    mode: (() => {
+      try {
+        return localStorage.getItem('discord-embeder:mode') === 'advanced' ? 'advanced' : 'simple';
+      } catch {
+        return 'simple' as const;
+      }
+    })(),
+    setMode: (mode) => {
+      set({ mode });
+      try {
+        localStorage.setItem('discord-embeder:mode', mode);
+      } catch {
+        /* best-effort */
+      }
+    },
 
     select: (key) => set({ selectedKey: key }),
 
@@ -341,6 +413,67 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     },
 
     markSaved: () => set({ lastSavedAt: Date.now() }),
+
+    addSmart: (type) => {
+      const state = get();
+      // 1) A type that can't live at the top level needs a wrapper first.
+      if (!isTopLevelLegal(type)) {
+        if (type === ComponentType.Thumbnail) {
+          const section = findLatest(state.tree, (n) => isSectionNode(n) && !sectionHasAccessory(n));
+          if (section) return addComponentOp(get, set, type, { parentKey: section.key, index: 0, slot: 'accessory' });
+          // No section without an accessory: build one (with its first text) and drop the thumbnail in.
+          return addComponentOp(get, set, ComponentType.Section, { parentKey: null, index: state.tree.length, slot: 'child' }, (mid) => {
+            const newSection = mid.tree[mid.tree.length - 1];
+            if (!isSectionNode(newSection)) return null;
+            const text = createNode(ComponentType.TextDisplay);
+            let tree = insertIntoTree(mid.tree, text, { parentKey: newSection.key, index: 0, slot: 'child' });
+            const thumb = createNode(type);
+            tree = insertIntoTree(tree, thumb, { parentKey: newSection.key, index: 0, slot: 'accessory' });
+            return { tree, selectedKey: thumb.key };
+          });
+        }
+        const container = findLatest(state.tree, (n) => n.data.type === ComponentType.Container);
+        let row: ComponentNode | undefined;
+        if (type === ComponentType.Button || (type >= ComponentType.StringSelect && type <= ComponentType.ChannelSelect)) {
+          // Prefer the latest row with room — a top-level row beats creating another row.
+          row = findLatest(state.tree, (n) => n.data.type === ComponentType.ActionRow && rowHasRoom(n, type));
+        }
+        if (row) return addComponentOp(get, set, type, { parentKey: row.key, index: row.children.length, slot: 'child' });
+        // No room anywhere: create an Action Row (inside the last container, else top level) and put the block in it.
+        const rowTarget: DropTarget = container
+          ? { parentKey: container.key, index: container.children.length, slot: 'child' }
+          : { parentKey: null, index: state.tree.length, slot: 'child' };
+        return addComponentOp(get, set, ComponentType.ActionRow, rowTarget, (mid) => {
+          const builtRow = mid.tree[mid.tree.length - 1];
+          if (builtRow.data.type !== ComponentType.ActionRow) return null;
+          const child = createNode(type);
+          return { tree: insertIntoTree(mid.tree, child, { parentKey: builtRow.key, index: 0, slot: 'child' }), selectedKey: child.key };
+        });
+      }
+      // 2) Top-level-legal type: try to nest it into the selection first, else append at root.
+      const sel = state.selectedKey ? findNode(state.tree, state.selectedKey) : undefined;
+      if (sel) {
+        if (sel.data.type === ComponentType.Section && type === ComponentType.TextDisplay && sel.children.length < 3) {
+          return addComponentOp(get, set, type, { parentKey: sel.key, index: sel.children.length, slot: 'child' });
+        }
+        if (
+          sel.data.type === ComponentType.ActionRow &&
+          (type === ComponentType.Button ||
+            (type >= ComponentType.StringSelect && type <= ComponentType.ChannelSelect)) &&
+          rowHasRoom(sel, type)
+        ) {
+          return addComponentOp(get, set, type, { parentKey: sel.key, index: sel.children.length, slot: 'child' });
+        }
+        if (sel.data.type === ComponentType.Container) {
+          const t: DropTarget =
+            type === ComponentType.Section || type === ComponentType.MediaGallery
+              ? { parentKey: null, index: state.tree.length, slot: 'child' }
+              : { parentKey: sel.key, index: sel.children.length, slot: 'child' };
+          if (checkDrop(state.tree, { type }, t).ok) return addComponentOp(get, set, type, t);
+        }
+      }
+      return addComponentOp(get, set, type, { parentKey: null, index: state.tree.length, slot: 'child' });
+    },
 
     undo: () => {
       const state = get();
