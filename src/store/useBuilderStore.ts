@@ -15,6 +15,13 @@ export interface OperationResult {
   reason?: string;
 }
 
+export interface SavedTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  components: TopLevelComponent[];
+}
+
 interface Snapshot {
   tree: ComponentNode[];
   selectedKey: string | null;
@@ -62,6 +69,11 @@ export interface BuilderState {
   /** 'simple' shows the common blocks; 'advanced' shows everything. */
   mode: 'simple' | 'advanced';
   setMode: (mode: 'simple' | 'advanced') => void;
+
+  /** User-captured layouts, persisted to localStorage. */
+  customTemplates: SavedTemplate[];
+  saveTemplate: (name: string) => void;
+  deleteTemplate: (id: string) => void;
   /** Click-to-add: appends the block wherever it legally fits, wrapping in
    *  a parent (Action Row / Section) when the type needs one. */
   addSmart: (type: ComponentType) => OperationResult;
@@ -72,6 +84,24 @@ export interface BuilderState {
 // ---------------------------------------------------------------------------
 
 const HISTORY_LIMIT = 100;
+const CUSTOM_TEMPLATES_KEY = 'discord-embeder:custom-templates:v1';
+
+function loadCustomTemplates(): SavedTemplate[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+    return raw ? (JSON.parse(raw) as SavedTemplate[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistCustomTemplates(templates: SavedTemplate[]): void {
+  try {
+    localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+  } catch {
+    // Storage full or unavailable — template persistence is best-effort.
+  }
+}
 
 export const useBuilderStore = create<BuilderState>()((set, get) => {
   const withHistory = (state: BuilderState): Partial<BuilderState> => ({
@@ -159,6 +189,25 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     future: [],
     lastSavedAt: null,
     lastRejected: null,
+
+    customTemplates: loadCustomTemplates(),
+    saveTemplate: (name) => {
+      const state = get();
+      const template: SavedTemplate = {
+        id: `t${Date.now()}`,
+        name,
+        createdAt: new Date().toISOString(),
+        components: buildPayload(state.tree),
+      };
+      const next = [template, ...state.customTemplates];
+      set({ customTemplates: next });
+      persistCustomTemplates(next);
+    },
+    deleteTemplate: (id) => {
+      const next = get().customTemplates.filter((t) => t.id !== id);
+      set({ customTemplates: next });
+      persistCustomTemplates(next);
+    },
 
     mode: (() => {
       try {

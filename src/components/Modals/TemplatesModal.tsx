@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { TopLevelComponent } from '../../model/discord-components-v2-schema';
 import { TEMPLATES } from '../../templates';
 import { useBuilderStore } from '../../store/useBuilderStore';
+import { countComponents } from '../../model/tree';
 import { Modal } from './Modal';
 
 type Filter = 'all' | 'starter' | 'advanced';
@@ -14,6 +15,10 @@ export function TemplatesModal({
   onPick: (components: TopLevelComponent[]) => void;
 }) {
   const mode = useBuilderStore((s) => s.mode);
+  const customTemplates = useBuilderStore((s) => s.customTemplates);
+  const treeCount = useBuilderStore((s) => countComponents(s.tree));
+  const projectName = useBuilderStore((s) => s.projectName);
+  const [name, setName] = useState('');
   const defaultFilter: Filter = mode === 'simple' ? 'starter' : 'all';
   const [filter, setFilter] = useState<Filter>(defaultFilter);
   const shown = TEMPLATES.filter((t) => filter === 'all' || t.complexity === filter);
@@ -21,6 +26,68 @@ export function TemplatesModal({
   return (
     <Modal title="Starter templates" onClose={onClose} wide>
       <div className="flex flex-col gap-3">
+        {(customTemplates.length > 0 || treeCount > 0) && (
+          <div className="rounded-lg border border-discord-panel bg-discord-base-deep p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-discord-muted">My templates</span>
+              {treeCount > 0 && (
+                <span className="ml-auto flex items-center gap-1.5">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={projectName}
+                    className="w-36 rounded border border-discord-panel bg-discord-base px-2 py-1 text-xs text-discord-text placeholder:text-discord-muted"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      useBuilderStore.getState().saveTemplate(name.trim() || projectName);
+                      setName('');
+                    }}
+                    className="rounded bg-discord-accent px-2 py-1 text-xs font-semibold text-white transition-colors hover:bg-discord-accent-hover"
+                  >
+                    💾 Save current ({treeCount})
+                  </button>
+                </span>
+              )}
+            </div>
+            {customTemplates.length > 0 && (
+              <div className="mt-2 grid gap-1.5">
+                {customTemplates.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-2 rounded border border-discord-sidebar bg-discord-base px-2.5 py-1.5"
+                  >
+                    <span className="text-sm font-semibold text-discord-text">{t.name}</span>
+                    <span className="text-[10px] text-discord-muted">
+                      {t.components.length} top-level · {new Date(t.createdAt).toLocaleDateString()}
+                    </span>
+                    <span className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPick(t.components);
+                          onClose();
+                        }}
+                        className="rounded bg-discord-accent/15 px-2 py-1 text-xs font-semibold text-[#9aa4ff] transition-colors hover:bg-discord-accent hover:text-white"
+                      >
+                        Insert
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete template"
+                        onClick={() => useBuilderStore.getState().deleteTemplate(t.id)}
+                        className="rounded px-1.5 py-1 text-xs text-discord-muted transition-colors hover:bg-discord-red/15 hover:text-discord-red"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           {(['all', 'starter', 'advanced'] as const).map((f) => (
             <button
