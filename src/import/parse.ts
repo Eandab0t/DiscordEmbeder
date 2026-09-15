@@ -22,7 +22,6 @@ export interface ImportError {
   message: string;
 }
 
-// Child-type legality derives from the schema's single source of truth.
 const CONTAINER_CHILD_TYPES: ReadonlySet<number> = new Set(ALLOWED_CHILDREN[ComponentType.Container]);
 const ACTION_ROW_CHILD_TYPES: ReadonlySet<number> = new Set(ALLOWED_CHILDREN[ComponentType.ActionRow]);
 

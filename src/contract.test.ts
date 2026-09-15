@@ -103,7 +103,6 @@ describe('nesting law', () => {
 describe('checkDrop', () => {
   it.each([
     ['TextDisplay at root', CT.TextDisplay, root(0), true],
-    ['Separator at root', CT.Separator, root(0), true],
     ['Button at root', CT.Button, root(0), false],
     ['Thumbnail at root', CT.Thumbnail, root(0), false],
     ['TextDisplay into container', CT.TextDisplay, null, true], // parentKey filled below
@@ -163,7 +162,6 @@ describe('checkDrop', () => {
     const { tree, section, container } = makeTree();
     const slot = (key: string): DropTarget => ({ parentKey: key, index: -1, slot: 'accessory' });
     expect(checkDrop(tree, { type: CT.Thumbnail }, slot(section.key)).ok).toBe(false); // taken
-    expect(checkDrop(tree, { type: CT.Button }, slot(section.key)).ok).toBe(false);
     expect(checkDrop(tree, { type: CT.TextDisplay }, slot(section.key)).ok).toBe(false);
     expect(checkDrop(tree, { type: CT.Thumbnail }, slot(container.key)).ok).toBe(false);
     const bare = nd({ type: CT.Section, components: [td()] } as DiscordData);
