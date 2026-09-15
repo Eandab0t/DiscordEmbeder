@@ -246,7 +246,7 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
     });
   }
 
-  const visit = (node: ComponentNode, inSection: boolean) => {
+  const visit = (node: ComponentNode) => {
     const d = node.data;
     switch (node.type) {
       case ComponentType.Button: {
@@ -322,7 +322,7 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
             nodeKey: node.key,
           });
         }
-        for (const c of kids) visit(c, inSection);
+        for (const c of kids) visit(c);
         break;
       }
       case ComponentType.Section: {
@@ -346,8 +346,8 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
             nodeKey: node.key,
           });
         }
-        for (const c of node.children) visit(c, true);
-        if (isSectionNode(node) && node.accessory) visit(node.accessory, true);
+        for (const c of node.children) visit(c);
+        if (isSectionNode(node) && node.accessory) visit(node.accessory);
         break;
       }
       case ComponentType.TextDisplay: {
@@ -401,7 +401,7 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
       case ComponentType.RoleSelect:
       case ComponentType.MentionableSelect:
       case ComponentType.ChannelSelect: {
-        if ('custom_id' in d && !d.custom_id) {
+        if (!d.custom_id) {
           issues.push({
             severity: 'error',
             message: 'Select menus need a custom_id.',
@@ -411,7 +411,7 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
         break;
       }
       default:
-        for (const c of node.children) visit(c, inSection);
+        for (const c of node.children) visit(c);
     }
   };
 
@@ -423,7 +423,7 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
         nodeKey: n.key,
       });
     }
-    visit(n, false);
+    visit(n);
   }
 
   if (tree.length === 0) {
