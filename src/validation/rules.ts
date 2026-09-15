@@ -218,7 +218,7 @@ export interface ValidationIssue {
 }
 
 const TEXT_DISPLAY_TOTAL_CAP = 4000;
-const SELECT_OPTIONS_CAP = 25;
+export const SELECT_OPTIONS_CAP = 25;
 
 export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
