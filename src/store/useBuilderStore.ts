@@ -255,19 +255,19 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     },
 
     updateData: (key, updater) => {
-    const state = get();
-    const now = Date.now();
-    const burst = lastEdit?.key === key && now - lastEdit.time < 700;
-    set({
-      ...(burst ? {} : withHistory(state)),
-      tree: mapTree(state.tree, key, (n) => {
-        const data: DiscordData = structuredClone(n.data) as DiscordData;
-        updater(data);
-        return { ...n, data };
-      }),
-    });
-    lastEdit = { key, time: now };
-  },
+      const state = get();
+      const now = Date.now();
+      const burst = lastEdit?.key === key && now - lastEdit.time < 700;
+      set({
+        ...(burst ? {} : withHistory(state)),
+        tree: mapTree(state.tree, key, (n) => {
+          const data: DiscordData = structuredClone(n.data) as DiscordData;
+          updater(data);
+          return { ...n, data };
+        }),
+      });
+      lastEdit = { key, time: now };
+    },
 
     removeNode: (key) => {
       const state = get();
