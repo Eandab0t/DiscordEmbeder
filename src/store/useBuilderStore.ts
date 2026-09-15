@@ -25,8 +25,7 @@ export interface BuilderState {
   selectedKey: string | null;
   projectName: string;
   createdAt: string;
-  bot: { username: string; avatarUrl: string };
-  webhookUrl: string;
+  bot: { username: string; avatarUrl: string };  webhookUrl: string;
   past: Snapshot[];
   future: Snapshot[];
   lastSavedAt: number | null;
@@ -52,7 +51,6 @@ export interface BuilderState {
   loadSession: (session: ProjectSession, opts?: { recordHistory?: boolean }) => void;
   loadPayload: (components: TopLevelComponent[], name?: string) => void;
   getSession: () => ProjectSession;
-  markSaved: () => void;
 
   // History
   undo: () => void;
@@ -302,8 +300,6 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
         tree: JSON.parse(JSON.stringify(buildPayload(state.tree))) as ProjectSession['tree'],
       };
     },
-
-    markSaved: () => set({ lastSavedAt: Date.now() }),
 
     addSmart: (type) => {
       const state = get();

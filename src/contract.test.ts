@@ -14,6 +14,7 @@ import {
   SeparatorSpacing,
 } from './model/discord-components-v2-schema';
 import type { DiscordData } from './model/node';
+import { substituteEntities, formatTimestamp } from './components/Preview/Markdown';
 import { buildPayload, countComponents, dataToNode, totalTextLength, createNode, cloneWithNewKeys, mapTree, removeFromTree, insertIntoTree, type DropTarget } from './model/tree';
 import {
   checkDrop,
@@ -427,5 +428,56 @@ describe('tree surgery', () => {
     const { tree: without } = removeFromTree(tree, accKey);
     const restored = insertIntoTree(without, section.accessory!, { parentKey: section.key, index: -1, slot: 'accessory' });
     expect(JSON.stringify(restored)).toBe(JSON.stringify(tree));
+  });
+});
+
+describe('Discord entity substitution (preview accuracy)', () => {
+  // The sentinel destination is URI-encoded because react-markdown's default
+  // URL transform percent-encodes `<`/`>`/`:` — the chip branch matches on
+  // the transformed form.
+  const enc = (s: string) => `![entity](discord-entity/${encodeURIComponent(s)})`;
+  it.each([
+    ['<@123456789012345678>'],
+    ['<@!123456789012345678>'],
+    ['<@&987654321098765432>'],
+    ['<#555444333222111000>'],
+    ['<t:1735689600>'],
+    ['<t:1735689600:R>'],
+    ['<t:1735689600:F>'],
+    ['<a:spin:1539372187322949722>'],
+  ])(
+    'substitutes %j',
+    (input) => {
+      expect(substituteEntities(input)).toBe(enc(input));
+    },
+  );
+
+  const fence = '```\n<@123456789012345678>\n```';
+  it.each([
+    ['plain **markdown** stays untouched', 'plain **markdown** stays untouched'],
+    ['`<@123456789012345678>` stays literal in code', '`<@123456789012345678>` stays literal in code'],
+    [fence, fence],
+    ['no entities here', 'no entities here'],
+  ])(
+    'leaves code and plain text alone: %j',
+    (input, expected) => {
+      expect(substituteEntities(input)).toBe(expected);
+    },
+  );
+
+  it.each([
+    [1735689600, 'f', /2024/i],
+    [1735689600, 'R', /ago|in /i],
+    [1735689600, 't', /:/],
+  ])(
+    'formats timestamp epoch=%s style=%s',
+    (epoch, style, pattern) => {
+      expect(formatTimestamp(epoch, style)).toMatch(pattern);
+    },
+  );
+
+  it('rejects malformed pseudo-entities', () => {
+    expect(substituteEntities('<t:notanumber>')).toBe('<t:notanumber>');
+    expect(substituteEntities('<@123>')).toBe('<@123>');
   });
 });
