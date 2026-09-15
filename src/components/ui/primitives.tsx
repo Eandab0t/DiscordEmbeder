@@ -1,28 +1,4 @@
-import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes, ChangeEvent } from 'react';
-
-export function Panel({
-  title,
-  actions,
-  children,
-  className = '',
-}: {
-  title?: string;
-  actions?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`flex flex-col overflow-hidden ${className}`}>
-      {title && (
-        <div className="flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-discord-muted">
-          <span>{title}</span>
-          {actions}
-        </div>
-      )}
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-    </div>
-  );
-}
+import type { InputHTMLAttributes, TextareaHTMLAttributes, ChangeEvent } from 'react';
 
 export function Field({
   label,

@@ -28,7 +28,7 @@ export function dataToNode(data: DiscordData, key: string = nextKey()): Componen
 }
 
 /** Editor node → schema shape, ready for JSON.stringify. */
-export function nodeToData(node: ComponentNode): DiscordData {
+function nodeToData(node: ComponentNode): DiscordData {
   const d = node.data as DiscordData & Record<string, unknown>;
   if (node.type === ComponentType.Container) {
     d.components = node.children.map(nodeToData) as ContainerChild[];
