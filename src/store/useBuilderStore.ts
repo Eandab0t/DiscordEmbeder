@@ -104,10 +104,16 @@ function persistCustomTemplates(templates: SavedTemplate[]): void {
 }
 
 export const useBuilderStore = create<BuilderState>()((set, get) => {
-  const withHistory = (state: BuilderState): Partial<BuilderState> => ({
-    past: [...state.past, { tree: state.tree, selectedKey: state.selectedKey }].slice(-HISTORY_LIMIT),
-    future: [],
-  });
+  /** Tracks the previous updateData so a typing burst collapses into one undo step. */
+  let lastEdit: { key: string; time: number } | null = null;
+
+  const withHistory = (state: BuilderState): Partial<BuilderState> => {
+    lastEdit = null; // any structural mutation ends a typing burst
+    return {
+      past: [...state.past, { tree: state.tree, selectedKey: state.selectedKey }].slice(-HISTORY_LIMIT),
+      future: [],
+    };
+  };
 
   /** Record a rejected mutation so the UI can tell the user why nothing happened. */
   function reject(reason: string): OperationResult {
@@ -249,16 +255,19 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     },
 
     updateData: (key, updater) => {
-      const state = get();
-      set({
-        ...withHistory(state),
-        tree: mapTree(state.tree, key, (n) => {
-          const data: DiscordData = structuredClone(n.data) as DiscordData;
-          updater(data);
-          return { ...n, data };
-        }),
-      });
-    },
+    const state = get();
+    const now = Date.now();
+    const burst = lastEdit?.key === key && now - lastEdit.time < 700;
+    set({
+      ...(burst ? {} : withHistory(state)),
+      tree: mapTree(state.tree, key, (n) => {
+        const data: DiscordData = structuredClone(n.data) as DiscordData;
+        updater(data);
+        return { ...n, data };
+      }),
+    });
+    lastEdit = { key, time: now };
+  },
 
     removeNode: (key) => {
       const state = get();
@@ -430,6 +439,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     },
 
     undo: () => {
+      lastEdit = null;
       const state = get();
       const prev = state.past[state.past.length - 1];
       if (!prev) return;
@@ -445,6 +455,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     },
 
     redo: () => {
+      lastEdit = null;
       const state = get();
       const next = state.future[0];
       if (!next) return;

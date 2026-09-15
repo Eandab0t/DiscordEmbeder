@@ -150,15 +150,6 @@ function TextDisplayFields({ node, upd }: { node: ComponentNode; upd: Upd }) {
           onChange={(v) => set('content', v)}
         />
       </Field>
-      <div className="rounded border border-discord-sidebar bg-discord-sidebar/50 p-2">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-discord-muted">Markdown cheatsheet</p>
-        <p className="text-[11px] leading-relaxed text-discord-muted">
-          <code># H1</code> · <code>## H2</code> · <code>**bold**</code> · <code>*italic*</code> ·{' '}
-          <code>__underline__</code> · <code>~~strike~~</code> · <code>`code`</code> ·{' '}
-          <code>&gt; quote</code> · <code>- list</code> · <code>[text](url)</code> ·{' '}
-          <code>&lt;url&gt;</code> auto-links
-        </p>
-      </div>
     </div>
   );
 }
