@@ -6,6 +6,7 @@ import {
   SELECT_OPTIONS_CAP,
 } from '../model/discord-components-v2-schema';
 import type { ComponentNode } from '../model/node';
+import type { DropTarget } from '../model/tree';
 import { isSectionNode, nodeLabel } from '../model/node';
 import { countComponents, totalTextLength } from '../model/tree';
 
@@ -22,15 +23,6 @@ export function isAllowedChildType(parentType: ComponentType, childType: Compone
 /** Is a Section accessory slot free to take another accessory? */
 export function sectionHasAccessory(node: ComponentNode): boolean {
   return isSectionNode(node) && node.accessory !== null;
-}
-
-export interface DropTarget {
-  /** Parent node key, or null for the root list. */
-  parentKey: string | null;
-  /** Insert index among the parent's children (accessory slot uses index -1). */
-  index: number;
-  /** 'child' = normal children slot; 'accessory' = the single accessory slot of a Section. */
-  slot: 'child' | 'accessory';
 }
 
 export interface DropCheckResult {
