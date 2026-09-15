@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-// https://vite.dev/config/
+// Single-file output: dist/index.html must work when opened directly (file://),
+// so no separate asset files and no absolute /asset URLs.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
@@ -10,18 +11,12 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    assetsInlineLimit: 100_000_000,
     rollupOptions: {
       output: {
-        // Split infrequently-changing dependencies into cache-friendly chunks.
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
-          if (id.includes('codemirror') || id.includes('@codemirror') || id.includes('lezer')) {
-            return 'codemirror';
-          }
-          if (id.includes('@dnd-kit')) return 'dndkit';
-          if (id.includes('react') || id.includes('scheduler')) return 'react';
-          return 'vendor';
-        },
+        // One chunk (dynamic imports get inlined too) so index.html is self-contained.
+        inlineDynamicImports: true,
+        manualChunks: undefined,
       },
     },
   },
