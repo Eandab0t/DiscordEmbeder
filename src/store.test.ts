@@ -110,12 +110,15 @@ describe('undo coalescing', () => {
       s = store.getState();
       const node = s.tree[s.tree.length - 1];
       const original = (node.data as { content: string }).content;
-      const type = (d: { content: string }, text: string) => {
-        d.content = text;
-      };
-      s.updateData(node.key, (d) => type(d as { content: string }, 'a'));
-      s.updateData(node.key, (d) => type(d as { content: string }, 'ab'));
-      s.updateData(node.key, (d) => type(d as { content: string }, 'abc'));
+      s.updateData(node.key, (d) => {
+        if (d.type === CT.TextDisplay) d.content = 'a';
+      });
+      s.updateData(node.key, (d) => {
+        if (d.type === CT.TextDisplay) d.content = 'ab';
+      });
+      s.updateData(node.key, (d) => {
+        if (d.type === CT.TextDisplay) d.content = 'abc';
+      });
       s = store.getState();
       expect(s.past).toHaveLength(3); // container + text display + the burst's first keystroke
       s.undo();
@@ -124,7 +127,9 @@ describe('undo coalescing', () => {
 
       vi.advanceTimersByTime(800);
       s = store.getState();
-      s.updateData(node.key, (d) => type(d as { content: string }, 'x'));
+      s.updateData(node.key, (d) => {
+        if (d.type === CT.TextDisplay) d.content = 'x';
+      });
       s = store.getState();
       expect(s.past).toHaveLength(3); // fresh entry after the pause (2 undos remain)
       s.undo();
