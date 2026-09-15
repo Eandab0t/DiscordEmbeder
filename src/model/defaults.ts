@@ -66,6 +66,13 @@ export const PALETTE_ITEMS: PaletteItem[] = [
     hue: 'border-blue-500/60 bg-blue-500/10 text-blue-200',
   },
   {
+    type: ComponentType.Thumbnail,
+    label: 'Thumbnail',
+    description: 'Small image beside a Section\u2019s text (accessory)',
+    category: 'content',
+    hue: 'border-teal-500/60 bg-teal-500/10 text-teal-200',
+  },
+  {
     type: ComponentType.Button,
     label: 'Button',
     description: 'Clickable button (link or custom_id)',
@@ -133,6 +140,8 @@ export function createDefaultData(type: ComponentType): DiscordData {
         type: ComponentType.TextDisplay,
         content: 'Text with **markdown** support — https://discord.com',
       };
+    case ComponentType.Thumbnail:
+      return { type: ComponentType.Thumbnail, media: { url: 'https://i.imgur.com/AfFp7pu.png' }, spoiler: false };
     case ComponentType.MediaGallery:
       return {
         type: ComponentType.MediaGallery,
