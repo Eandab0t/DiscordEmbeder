@@ -1,4 +1,5 @@
 import {
+  ALLOWED_CHILDREN,
   ComponentType,
   IS_COMPONENTS_V2,
   SeparatorSpacing,
@@ -6,7 +7,7 @@ import {
 } from '../model/discord-components-v2-schema';
 import type { ComponentNode, DiscordData } from '../model/node';
 import { dataToNode } from '../model/tree';
-import { SELECT_OPTIONS_CAP } from '../validation/rules';
+import { isTopLevelLegal, SELECT_OPTIONS_CAP } from '../validation/rules';
 
 export interface ImportResult {
   ok: boolean;
@@ -21,33 +22,9 @@ export interface ImportError {
   message: string;
 }
 
-const VALID_TOP_LEVEL: ReadonlySet<number> = new Set([
-  ComponentType.Container,
-  ComponentType.Section,
-  ComponentType.TextDisplay,
-  ComponentType.MediaGallery,
-  ComponentType.File,
-  ComponentType.Separator,
-  ComponentType.ActionRow,
-]);
-
-const CONTAINER_CHILD_TYPES: ReadonlySet<number> = new Set([
-  ComponentType.ActionRow,
-  ComponentType.Section,
-  ComponentType.TextDisplay,
-  ComponentType.MediaGallery,
-  ComponentType.File,
-  ComponentType.Separator,
-]);
-
-const ACTION_ROW_CHILD_TYPES: ReadonlySet<number> = new Set([
-  ComponentType.Button,
-  ComponentType.StringSelect,
-  ComponentType.UserSelect,
-  ComponentType.RoleSelect,
-  ComponentType.MentionableSelect,
-  ComponentType.ChannelSelect,
-]);
+// Child-type legality derives from the schema's single source of truth.
+const CONTAINER_CHILD_TYPES: ReadonlySet<number> = new Set(ALLOWED_CHILDREN[ComponentType.Container]);
+const ACTION_ROW_CHILD_TYPES: ReadonlySet<number> = new Set(ALLOWED_CHILDREN[ComponentType.ActionRow]);
 
 export function parsePayloadJson(text: string): ImportResult {
   const errors: ImportError[] = [];
@@ -206,7 +183,7 @@ function validateComponent(
     return null;
   }
   const typePath = `${path}.type`;
-  if (topLevel && !VALID_TOP_LEVEL.has(type)) {
+  if (topLevel && !isTopLevelLegal(type)) {
     errors.push({
       path: typePath,
       message:
