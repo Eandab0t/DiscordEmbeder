@@ -6,7 +6,7 @@ import {
   type ComponentsV2Message,
 } from '../model/discord-components-v2-schema';
 
-export interface TemplateEntry {
+interface TemplateEntry {
   id: string;
   name: string;
   description: string;
