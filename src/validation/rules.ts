@@ -9,14 +9,11 @@ import { isSectionNode, nodeLabel } from '../model/node';
 import { countComponents, totalTextLength } from '../model/tree';
 
 /** Would `childType` be legal as a direct child of `parentType`?
- *  Reads ALLOWED_CHILDREN plus the Section accessory special case. */
+ *  Reads ALLOWED_CHILDREN. Section accessories (Button/Thumbnail) are NOT
+ *  children — they only fit the dedicated accessory slot. */
 export function isAllowedChildType(parentType: ComponentType, childType: ComponentType): boolean {
   if (parentType === ComponentType.Section) {
-    return (
-      childType === ComponentType.TextDisplay ||
-      childType === ComponentType.Button ||
-      childType === ComponentType.Thumbnail
-    );
+    return childType === ComponentType.TextDisplay;
   }
   return ALLOWED_CHILDREN[parentType]?.includes(childType) ?? false;
 }
