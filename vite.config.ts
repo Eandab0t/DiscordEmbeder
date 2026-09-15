@@ -14,9 +14,8 @@ export default defineConfig({
     assetsInlineLimit: 100_000_000,
     rollupOptions: {
       output: {
-        // One chunk (dynamic imports get inlined too) so index.html is self-contained.
+        // One chunk so index.html is self-contained.
         inlineDynamicImports: true,
-        manualChunks: undefined,
       },
     },
   },
