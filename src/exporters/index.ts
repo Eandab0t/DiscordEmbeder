@@ -5,5 +5,3 @@ import { discordPyExporter } from './discordpy';
 import { curlExporter } from './curl';
 
 export const EXPORTERS: Exporter[] = [jsonExporter, discordJsExporter, discordPyExporter, curlExporter];
-
-export type { Exporter, ExportContext } from './types';
