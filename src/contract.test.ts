@@ -14,14 +14,15 @@ import {
   SeparatorSpacing,
 } from './model/discord-components-v2-schema';
 import type { DiscordData } from './model/node';
-import { buildPayload, countComponents, dataToNode, totalTextLength } from './model/tree';
+import { buildPayload, countComponents, dataToNode, totalTextLength, createNode, cloneWithNewKeys, mapTree, removeFromTree, insertIntoTree, type DropTarget } from './model/tree';
 import {
   checkDrop,
+  findNode,
   isAllowedChildType,
   isTopLevelLegal,
   validateTree,
-  type DropTarget,
 } from './validation/rules';
+import { isSectionNode } from './model/node';
 import { parsePayloadJson } from './import/parse';
 import { EXPORTERS } from './exporters';
 
@@ -366,5 +367,65 @@ describe('exporters', () => {
     expect(out).toContain('with_components=true');
     expect(out).toContain(`'\\''`);
     expect(out.startsWith('#')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Tree surgery — the mutation primitives behind every store operation
+// ---------------------------------------------------------------------------
+
+describe('tree surgery', () => {
+  const fresh = () => {
+    const section = nd({ type: CT.Section, components: [td('s')], accessory: thumb() } as DiscordData);
+    return { tree: [nd({ type: CT.Container, components: [td('c')] } as DiscordData), section], section };
+  };
+
+  it('insertIntoTree places at root, child, and accessory slots; clamps indexes', () => {
+    const { tree, section } = fresh();
+    expect(insertIntoTree(tree, createNode(CT.Separator), { parentKey: null, index: 99, slot: 'child' })).toHaveLength(3);
+    const nested = insertIntoTree(tree, createNode(CT.TextDisplay), { parentKey: section.key, index: 0, slot: 'child' });
+    expect(findNode(nested, section.key)!.children).toHaveLength(2);
+    const acc = insertIntoTree(tree, createNode(CT.Button), { parentKey: section.key, index: -1, slot: 'accessory' });
+    const accSection = findNode(acc, section.key)!;
+    expect(isSectionNode(accSection) ? accSection.accessory!.type : null).toBe(CT.Button);
+  });
+
+  it('removeFromTree removes from children and accessory slots, returning the node', () => {
+    const { tree, section } = fresh();
+    const innerKey = section.children[0].key;
+    const { tree: t1, removed } = removeFromTree(tree, innerKey);
+    expect(removed!.key).toBe(innerKey);
+    expect(findNode(t1, innerKey)).toBeNull();
+    const accKey = section.accessory!.key;
+    const { tree: t2, removed: r2 } = removeFromTree(tree, accKey);
+    expect(r2!.key).toBe(accKey);
+    const s2 = findNode(t2, section.key)!;
+    expect(isSectionNode(s2) ? s2.accessory : 'not a section').toBeNull();
+  });
+
+  it('mapTree replaces a node immutably; the original tree is untouched', () => {
+    const { tree, section } = fresh();
+    const before = JSON.stringify(tree);
+    const key = section.children[0].key;
+    const out = mapTree(tree, key, (n) => ({ ...n, data: { type: CT.TextDisplay, content: 'rewritten' } as DiscordData }));
+    expect((findNode(out, key)!.data as { content: string }).content).toBe('rewritten');
+    expect(JSON.stringify(tree)).toBe(before);
+  });
+
+  it('cloneWithNewKeys deep-copies with fresh keys but identical payload', () => {
+    const { section } = fresh();
+    const copy = cloneWithNewKeys(section);
+    expect(copy.key).not.toBe(section.key);
+    expect(copy.children[0].key).not.toBe(section.children[0].key);
+    expect(copy.accessory!.key).not.toBe(section.accessory!.key);
+    expect(JSON.stringify(buildPayload([copy]))).toBe(JSON.stringify(buildPayload([section])));
+  });
+
+  it('mutation parity: remove then insert re-creates the exact original tree', () => {
+    const { tree, section } = fresh();
+    const accKey = section.accessory!.key;
+    const { tree: without } = removeFromTree(tree, accKey);
+    const restored = insertIntoTree(without, section.accessory!, { parentKey: section.key, index: -1, slot: 'accessory' });
+    expect(JSON.stringify(restored)).toBe(JSON.stringify(tree));
   });
 });
