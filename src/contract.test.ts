@@ -465,8 +465,10 @@ describe('Discord entity substitution (preview accuracy)', () => {
     },
   );
 
+  // 1735689600 is exactly 2025-01-01T00:00Z, so the rendered year depends on
+  // the viewer's UTC offset — accept both sides of the boundary.
   it.each([
-    [1735689600, 'f', /2024/i],
+    [1735689600, 'f', /202[45]/],
     [1735689600, 'R', /ago|in /i],
     [1735689600, 't', /:/],
   ])(
