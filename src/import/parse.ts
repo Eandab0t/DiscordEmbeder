@@ -2,12 +2,13 @@ import {
   ALLOWED_CHILDREN,
   ComponentType,
   IS_COMPONENTS_V2,
+  SELECT_OPTIONS_CAP,
   SeparatorSpacing,
   type TopLevelComponent,
 } from '../model/discord-components-v2-schema';
 import type { ComponentNode, DiscordData } from '../model/node';
 import { dataToNode } from '../model/tree';
-import { isTopLevelLegal, SELECT_OPTIONS_CAP } from '../validation/rules';
+import { isTopLevelLegal } from '../validation/rules';
 
 export interface ImportResult {
   ok: boolean;
