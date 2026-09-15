@@ -100,6 +100,43 @@ describe('store mutation flow (real actions)', () => {
   });
 });
 
+describe('undo coalescing', () => {
+  it('rapid same-field edits collapse into one undo step; a pause starts a new one', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await load();
+      let s = store.getState();
+      s.addComponent(CT.TextDisplay, { parentKey: null, index: s.tree.length, slot: 'child' });
+      s = store.getState();
+      const node = s.tree[s.tree.length - 1];
+      const original = (node.data as { content: string }).content;
+      const type = (d: { content: string }, text: string) => {
+        d.content = text;
+      };
+      s.updateData(node.key, (d) => type(d as { content: string }, 'a'));
+      s.updateData(node.key, (d) => type(d as { content: string }, 'ab'));
+      s.updateData(node.key, (d) => type(d as { content: string }, 'abc'));
+      s = store.getState();
+      expect(s.past).toHaveLength(3); // container + text display + the burst's first keystroke
+      s.undo();
+      s = store.getState();
+      expect((s.tree.find((n) => n.key === node.key)!.data as { content: string }).content).toBe(original);
+
+      vi.advanceTimersByTime(800);
+      s = store.getState();
+      s.updateData(node.key, (d) => type(d as { content: string }, 'x'));
+      s = store.getState();
+      expect(s.past).toHaveLength(3); // fresh entry after the pause (2 undos remain)
+      s.undo();
+      s = store.getState();
+      // The burst result is coalesced away — undo returns to the pre-burst text.
+      expect((s.tree.find((n) => n.key === node.key)!.data as { content: string }).content).toBe(original);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('custom templates', () => {
   // Node has no localStorage; a Map-backed stub exercises the real
   // persist/load paths the browser would hit.
