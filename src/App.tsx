@@ -17,7 +17,8 @@ import { useBuilderStore, loadSessionFromLocalStorage } from './store/useBuilder
 import type { ProjectSession } from './model/node';
 import { nodeGlyph, nodeLabel } from './model/node';
 import { ComponentType } from './model/discord-components-v2-schema';
-import { findNode, validateTree, isAllowedChildType, isTopLevelLegal, type DropTarget } from './validation/rules';
+import { findNode, validateTree, isAllowedChildType, isTopLevelLegal } from './validation/rules';
+import type { DropTarget } from './model/tree';
 import { PALETTE_BY_TYPE, PALETTE_ITEMS } from './model/defaults';
 import { Palette, type PaletteBlock } from './components/Palette/Palette';
 import { Canvas, DragStateContext, parseOverId, type ActiveDragInfo } from './components/Canvas/Canvas';

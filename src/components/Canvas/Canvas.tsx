@@ -11,7 +11,8 @@ import { isSectionNode, nodeGlyph, nodeLabel, type ComponentNode } from '../../m
 import { PALETTE_BY_TYPE } from '../../model/defaults';
 import { TEMPLATES } from '../../templates';
 import { IconButton } from '../ui/primitives';
-import { checkDrop, findParentOf, type DropTarget } from '../../validation/rules';
+import { checkDrop, findParentOf } from '../../validation/rules';
+import type { DropTarget } from '../../model/tree';
 import { useBuilderStore } from '../../store/useBuilderStore';
 
 // ---------------------------------------------------------------------------
