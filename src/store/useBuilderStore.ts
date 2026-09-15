@@ -7,8 +7,8 @@ import {
 import type { ComponentNode, DiscordData, ProjectSession } from '../model/node';
 import { isSectionNode } from '../model/node';
 import { createDefaultData } from '../model/defaults';
-import { nextKey, dataToNode, buildPayload, countComponents } from '../model/tree';
-import { checkDrop, findNode, findParentOf, isTopLevelLegal, sectionHasAccessory, type DropTarget } from '../validation/rules';
+import { dataToNode, buildPayload, countComponents, createNode, cloneWithNewKeys, mapTree, removeFromTree, insertIntoTree, type DropTarget } from '../model/tree';
+import { checkDrop, findNode, findParentOf, isTopLevelLegal, sectionHasAccessory } from '../validation/rules';
 
 export interface OperationResult {
   ok: boolean;
@@ -64,104 +64,6 @@ export interface BuilderState {
   /** Click-to-add: appends the block wherever it legally fits, wrapping in
    *  a parent (Action Row / Section) when the type needs one. */
   addSmart: (type: ComponentType) => OperationResult;
-}
-
-// ---------------------------------------------------------------------------
-// Immutable tree surgery helpers
-// ---------------------------------------------------------------------------
-
-function mapTree(
-  list: ComponentNode[],
-  key: string,
-  fn: (n: ComponentNode) => ComponentNode,
-): ComponentNode[] {
-  return list.map((n) => {
-    if (n.key === key) return fn(n);
-    if (isSectionNode(n)) {
-      const children = mapTree(n.children, key, fn);
-      const accessory = n.accessory ? (mapTree([n.accessory], key, fn)[0] ?? n.accessory) : null;
-      return { ...n, children, accessory };
-    }
-    return { ...n, children: mapTree(n.children, key, fn) };
-  });
-}
-
-function removeFromTree(
-  list: ComponentNode[],
-  key: string,
-): { tree: ComponentNode[]; removed: ComponentNode | null } {
-  let removed: ComponentNode | null = null;
-  const walk = (nodes: ComponentNode[]): ComponentNode[] => {
-    const out: ComponentNode[] = [];
-    for (const n of nodes) {
-      if (n.key === key) {
-        removed = n;
-        continue;
-      }
-      if (isSectionNode(n)) {
-        const children = walk(n.children);
-        let accessory = n.accessory;
-        if (accessory && accessory.key === key) {
-          removed = accessory;
-          accessory = null;
-        }
-        out.push({ ...n, children, accessory });
-      } else {
-        out.push({ ...n, children: walk(n.children) });
-      }
-    }
-    return out;
-  };
-  return { tree: walk(list), removed };
-}
-
-function insertIntoTree(tree: ComponentNode[], node: ComponentNode, target: DropTarget): ComponentNode[] {
-  const clamp = (i: number, len: number) => Math.max(0, Math.min(i, len));
-  if (target.parentKey === null) {
-    const out = [...tree];
-    out.splice(clamp(target.index, out.length), 0, node);
-    return out;
-  }
-  const walk = (nodes: ComponentNode[]): ComponentNode[] =>
-    nodes.map((n) => {
-      if (n.key === target.parentKey) {
-        if (target.slot === 'accessory') {
-          if (isSectionNode(n)) return { ...n, accessory: node };
-          return n;
-        }
-        const children = [...n.children];
-        children.splice(clamp(target.index, children.length), 0, node);
-        return { ...n, children };
-      }
-      if (isSectionNode(n)) {
-        const children = walk(n.children);
-        const accessory = n.accessory ? (walk([n.accessory])[0] ?? n.accessory) : null;
-        return { ...n, children, accessory };
-      }
-      return { ...n, children: walk(n.children) };
-    });
-  return walk(tree);
-}
-
-function cloneWithNewKeys(node: ComponentNode): ComponentNode {
-  const data: DiscordData = JSON.parse(JSON.stringify(node.data)) as DiscordData;
-  if (isSectionNode(node)) {
-    return {
-      ...node,
-      key: nextKey(),
-      data,
-      children: node.children.map(cloneWithNewKeys),
-      accessory: node.accessory ? cloneWithNewKeys(node.accessory) : null,
-    };
-  }
-  return { ...node, key: nextKey(), data, children: node.children.map(cloneWithNewKeys) };
-}
-
-function createNode(type: ComponentType): ComponentNode {
-  if (type === ComponentType.Section) {
-    return { key: nextKey(), type, data: createDefaultData(type), children: [], accessory: null };
-  }
-  return { key: nextKey(), type, data: createDefaultData(type), children: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +190,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
       set({
         ...withHistory(state),
         tree: mapTree(state.tree, key, (n) => {
-          const data: DiscordData = JSON.parse(JSON.stringify(n.data)) as DiscordData;
+          const data: DiscordData = structuredClone(n.data) as DiscordData;
           updater(data);
           return { ...n, data };
         }),
@@ -505,7 +407,7 @@ export function saveSessionToLocalStorage(): void {
   try {
     const session = useBuilderStore.getState().getSession();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    useBuilderStore.getState().markSaved();
+    useBuilderStore.setState({ lastSavedAt: Date.now() });
   } catch {
     // Storage full or unavailable — autosave is best-effort.
   }
