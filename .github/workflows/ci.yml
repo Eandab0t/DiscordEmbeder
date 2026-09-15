@@ -23,5 +23,8 @@ jobs:
       - name: Lint (if configured)
         run: npm run lint --if-present
 
+      - name: Contract tests
+        run: npm test
+
       - name: Build (typecheck + vite build)
         run: npm run build
