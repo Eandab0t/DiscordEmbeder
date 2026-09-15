@@ -56,7 +56,7 @@ export default function App() {
   useEffect(() => {
     const session = loadSessionFromLocalStorage();
     if (session && Array.isArray(session.tree) && session.tree.length > 0) {
-      useBuilderStore.getState().loadSession(session);
+      useBuilderStore.getState().loadSession(session, { recordHistory: false });
     }
   }, []);
 
