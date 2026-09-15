@@ -29,6 +29,9 @@ export interface BuilderState {
   past: Snapshot[];
   future: Snapshot[];
   lastSavedAt: number | null;
+  /** Last rejected mutation (cap, nesting, …) — App surfaces it as a toast.
+   *  Object identity changes per rejection so the toast effect re-fires. */
+  lastRejected: { reason: string; at: number } | null;
 
   // Selection
   select: (key: string | null) => void;
@@ -76,6 +79,12 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     future: [],
   });
 
+  /** Record a rejected mutation so the UI can tell the user why nothing happened. */
+  function reject(reason: string): OperationResult {
+    set({ lastRejected: { reason, at: Date.now() } });
+    return { ok: false, reason };
+  }
+
   /** Shared body of addComponent/addSmart: check, then insert, optionally post-processing the built tree. */
   function addComponentOp(
     get: () => BuilderState,
@@ -86,7 +95,10 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
   ): OperationResult {
     const state = get();
     const check = checkDrop(state.tree, { type }, target);
-    if (!check.ok) return check;
+    if (!check.ok) {
+      reject(check.reason ?? 'Discord does not allow this placement.');
+      return check;
+    }
     const node = createNode(type);
     let tree = insertIntoTree(state.tree, node, target);
     let selectedKey: string | null = node.key;
@@ -146,6 +158,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     past: [],
     future: [],
     lastSavedAt: null,
+    lastRejected: null,
 
     mode: (() => {
       try {
@@ -170,11 +183,14 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     moveNode: (key, target) => {
       const state = get();
       const node = findNode(state.tree, key);
-      if (!node) return { ok: false, reason: 'Component no longer exists.' };
+      if (!node) return reject('Component no longer exists.');
       const check = checkDrop(state.tree, { type: node.type, key }, target);
-      if (!check.ok) return check;
+      if (!check.ok) {
+        reject(check.reason ?? 'Discord does not allow this placement.');
+        return check;
+      }
       const { tree: without, removed } = removeFromTree(state.tree, key);
-      if (!removed) return { ok: false, reason: 'Component no longer exists.' };
+      if (!removed) return reject('Component no longer exists.');
       set({
         ...withHistory(state),
         tree: insertIntoTree(without, removed, target),
@@ -224,7 +240,10 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
         slot: 'child',
       };
       const check = checkDrop(state.tree, { type: clone.type }, target);
-      if (!check.ok) return;
+      if (!check.ok) {
+        reject(check.reason ?? 'Discord does not allow this placement.');
+        return;
+      }
       set({
         ...withHistory(state),
         tree: insertIntoTree(state.tree, clone, target),
@@ -237,10 +256,9 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
       const nodes = components.map((c) => dataToNode(JSON.parse(JSON.stringify(c)) as DiscordData));
       const incoming = countComponents(nodes);
       if (countComponents(state.tree) + incoming > MAX_TOTAL_COMPONENTS) {
-        return {
-          ok: false,
-          reason: `Template needs ${incoming} slots but only ${MAX_TOTAL_COMPONENTS - countComponents(state.tree)} remain.`,
-        };
+        return reject(
+          `Template needs ${incoming} slots but only ${MAX_TOTAL_COMPONENTS - countComponents(state.tree)} remain.`,
+        );
       }
       set({
         ...withHistory(state),

@@ -68,6 +68,13 @@ export default function App() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
+  // Rejected mutations (cap, nesting, …) surface through the toast — the store
+  // records `lastRejected` with a fresh object identity per rejection.
+  const lastRejected = useBuilderStore((s) => s.lastRejected);
+  useEffect(() => {
+    if (lastRejected) showToast(lastRejected.reason);
+  }, [lastRejected]);
+
   // Keyboard shortcuts: undo / redo / delete / duplicate
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -124,7 +131,7 @@ export default function App() {
       const target = parseOverId(String(e.over.id), tree);
       if (target) {
         const result = drag.key ? st.moveNode(drag.key, target) : st.addComponent(drag.type, target);
-        if (!result.ok && result.reason) showToast(result.reason);
+        void result;
       }
     }
     setDrag(null);
@@ -280,8 +287,7 @@ export default function App() {
           <TemplatesModal
             onClose={() => setModal(null)}
             onPick={(components) => {
-              const result = useBuilderStore.getState().addTemplate(components);
-              if (!result.ok && result.reason) showToast(result.reason);
+              useBuilderStore.getState().addTemplate(components);
             }}
           />
         )}
