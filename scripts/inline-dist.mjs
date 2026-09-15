@@ -18,18 +18,13 @@ out = out.replace(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g, (_, href) 
   return `<style>\n${css}\n</style>`;
 });
 
-// Favicon becomes a data URI so the single file carries it.
-out = out.replace(/<link rel="icon"[^>]*href="\/favicon\.svg"[^>]*>/g, () => {
-  const svg = readFileSync('dist/favicon.svg');
-  return `<link rel="icon" href="data:image/svg+xml;base64,${svg.toString('base64')}" />`;
-});
-
 // Drop modulepreload hints — the modules are inline now.
 out = out.replace(/<link rel="modulepreload"[^>]*>/g, '');
 
 writeFileSync('dist/index.html', out);
 
+// Leave dist/ holding only the self-contained file.
 for (const name of readdirSync('dist/assets')) {
-  if (!out.includes(name)) unlinkSync(join('dist/assets', name));
+  unlinkSync(join('dist/assets', name));
 }
 console.log(`Inlined. dist/index.html ${(statSync('dist/index.html').size / 1024).toFixed(0)} kB`);
