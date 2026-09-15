@@ -47,7 +47,9 @@ export interface BuilderState {
   setBot: (patch: Partial<BuilderState['bot']>) => void;
   setWebhookUrl: (url: string) => void;
   newProject: () => void;
-  loadSession: (session: ProjectSession) => void;
+  /** `recordHistory: false` is for non-action restores (autosave on boot) —
+   *  they must not create phantom undo steps. */
+  loadSession: (session: ProjectSession, opts?: { recordHistory?: boolean }) => void;
   loadPayload: (components: TopLevelComponent[], name?: string) => void;
   getSession: () => ProjectSession;
   markSaved: () => void;
@@ -300,11 +302,11 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
         createdAt: new Date().toISOString(),
       }),
 
-    loadSession: (session) => {
+    loadSession: (session, opts) => {
       const state = get();
       const tree = session.tree.map((n) => dataToNode(JSON.parse(JSON.stringify(n)) as DiscordData));
       set({
-        ...withHistory(state),
+        ...(opts?.recordHistory === false ? {} : withHistory(state)),
         tree,
         selectedKey: null,
         projectName: session.metadata?.name ?? 'Imported project',
