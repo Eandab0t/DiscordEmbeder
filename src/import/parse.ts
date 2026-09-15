@@ -43,6 +43,21 @@ export function parsePayloadJson(text: string): ImportResult {
     };
   }
 
+  // Forwarded messages wrap the real payload in message_snapshots[0].message.
+  // Only unwrap when the outer message carries no components of its own.
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const msg = parsed as Record<string, unknown>;
+    const outerEmpty = !Array.isArray(msg.components) || msg.components.length === 0;
+    const snapshots = msg.message_snapshots;
+    if (outerEmpty && Array.isArray(snapshots) && snapshots.length > 0) {
+      const inner = (snapshots[0] as Record<string, unknown>).message;
+      if (inner && typeof inner === 'object') {
+        parsed = inner;
+        warnings.push('Forwarded message detected — imported the snapshot of the original message.');
+      }
+    }
+  }
+
   // Accept a bare components array, or an object with a components field.
   let componentsRaw: unknown;
   if (Array.isArray(parsed)) {
