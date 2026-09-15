@@ -10,6 +10,7 @@ import {
   ComponentType as CT,
   IS_COMPONENTS_V2,
   MAX_TOTAL_COMPONENTS,
+  SELECT_OPTIONS_CAP,
   SeparatorSpacing,
 } from './model/discord-components-v2-schema';
 import type { DiscordData } from './model/node';
@@ -18,7 +19,6 @@ import {
   checkDrop,
   isAllowedChildType,
   isTopLevelLegal,
-  SELECT_OPTIONS_CAP,
   validateTree,
   type DropTarget,
 } from './validation/rules';

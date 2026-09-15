@@ -25,6 +25,9 @@ export const IS_COMPONENTS_V2 = 1 << 15; // 32768
  *  recursively through all nesting. */
 export const MAX_TOTAL_COMPONENTS = 40;
 
+/** Max options in one String Select (Discord's documented limit). */
+export const SELECT_OPTIONS_CAP = 25;
+
 // ---------------------------------------------------------------------------
 // Component type IDs (exact numbering from Discord's official reference)
 // ---------------------------------------------------------------------------
