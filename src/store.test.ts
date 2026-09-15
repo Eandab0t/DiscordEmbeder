@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ComponentType as CT } from './model/discord-components-v2-schema';
 import { buildPayload, countComponents } from './model/tree';
 
@@ -97,5 +97,53 @@ describe('store mutation flow (real actions)', () => {
     const copy = s.tree[s.tree.length - 1];
     expect(copy.key).not.toBe(original.key);
     expect(JSON.stringify(buildPayload([copy]))).toBe(JSON.stringify(buildPayload([original])));
+  });
+});
+
+describe('custom templates', () => {
+  // Node has no localStorage; a Map-backed stub exercises the real
+  // persist/load paths the browser would hit.
+  const backing = new Map<string, string>();
+  beforeAll(() => {
+    globalThis.localStorage ??= {
+      getItem: (k: string) => backing.get(k) ?? null,
+      setItem: (k: string, v: string) => void backing.set(k, v),
+      removeItem: (k: string) => void backing.delete(k),
+      clear: () => backing.clear(),
+      key: (i: number) => [...backing.keys()][i] ?? null,
+      get length() {
+        return backing.size;
+      },
+    } as Storage;
+    backing.clear();
+  });
+
+  it('saveTemplate captures the payload; insert path accepts it; delete removes it; all persisted', async () => {
+    const store = await load();
+    let s = store.getState();
+    s.addComponent(CT.TextDisplay, { parentKey: null, index: s.tree.length, slot: 'child' });
+    s = store.getState();
+    s.updateData(s.tree[s.tree.length - 1].key, (d) => {
+      if (d.type === CT.TextDisplay) d.content = 'saved layout';
+    });
+    s.saveTemplate('weekly news');
+    s = store.getState();
+    expect(s.customTemplates).toHaveLength(1);
+    const t = s.customTemplates[0];
+    expect(t.name).toBe('weekly news');
+    expect(JSON.stringify(t.components)).toBe(JSON.stringify(buildPayload(s.tree)));
+
+    // Fresh module registry — the persisted list must survive a reload.
+    vi.resetModules();
+    const { useBuilderStore: fresh } = await import('./store/useBuilderStore');
+    expect(fresh.getState().customTemplates).toHaveLength(1);
+
+    // The insert path (addTemplate, what the modal's Insert calls) accepts it.
+    expect(fresh.getState().addTemplate(t.components).ok).toBe(true);
+
+    fresh.getState().deleteTemplate(t.id);
+    vi.resetModules();
+    const { useBuilderStore: fresh2 } = await import('./store/useBuilderStore');
+    expect(fresh2.getState().customTemplates).toHaveLength(0);
   });
 });
