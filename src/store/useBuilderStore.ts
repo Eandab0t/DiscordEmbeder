@@ -520,11 +520,3 @@ export function loadSessionFromLocalStorage(): ProjectSession | null {
     return null;
   }
 }
-
-export function clearLocalStorageSession(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
-}
