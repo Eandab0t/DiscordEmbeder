@@ -9,9 +9,10 @@ import {
 } from '../../model/discord-components-v2-schema';
 import { isSectionNode, nodeGlyph, nodeLabel, type ComponentNode } from '../../model/node';
 import { PALETTE_BY_TYPE } from '../../model/defaults';
+import { TEMPLATES } from '../../templates';
 import { IconButton } from '../ui/primitives';
 import { checkDrop, findParentOf, type DropTarget } from '../../validation/rules';
-import type { useBuilderStore } from '../../store/useBuilderStore';
+import { useBuilderStore } from '../../store/useBuilderStore';
 
 // ---------------------------------------------------------------------------
 // Drag state shared from App's DndContext
@@ -105,17 +106,45 @@ export function Canvas({ tree, select, selectedKey, removeNode, duplicateNode }:
 }
 
 function CanvasEmptyState() {
+  const addSmart = useBuilderStore((s) => s.addSmart);
+  const starters: { label: string; glyph: string; type: ComponentType }[] = [
+    { label: 'Text block', glyph: '¶', type: ComponentType.TextDisplay },
+    { label: 'Card (container)', glyph: '▤', type: ComponentType.Container },
+    { label: 'Image grid', glyph: '▦', type: ComponentType.MediaGallery },
+  ];
   return (
-    <div className="pointer-events-none grid flex-1 place-items-center py-24">
-      <div className="max-w-sm text-center">
+    <div className="grid flex-1 place-items-center py-20">
+      <div className="max-w-md text-center">
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-discord-accent/15 text-3xl">
           🧩
         </div>
         <h2 className="text-lg font-bold text-discord-text">Build your message</h2>
         <p className="mt-1 text-sm leading-relaxed text-discord-muted">
-          Drag components from the palette, or load a starter template from the toolbar. Nesting
-          follows Discord's real rules — blocks snap only into legal slots.
+          Click a block on the left and it lands in the right spot automatically — or drag one for
+          exact placement. Nesting follows Discord's real rules.
         </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {starters.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => addSmart(s.type)}
+              className="flex items-center gap-1.5 rounded-lg border border-discord-panel bg-discord-base px-3 py-2 text-xs font-semibold text-discord-text transition-colors hover:border-discord-accent hover:bg-discord-hover"
+            >
+              <span>{s.glyph}</span> {s.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              const t = TEMPLATES[0];
+              useBuilderStore.getState().addTemplate(t.message.components);
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-discord-accent/60 bg-discord-accent/10 px-3 py-2 text-xs font-semibold text-discord-text transition-colors hover:bg-discord-accent/25"
+          >
+            <span>✨</span> Announcement template
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -222,6 +251,16 @@ export function CanvasNode({ node, depth, tree, select, selectedKey, removeNode,
         <span className="text-xs font-bold text-discord-text">{nodeLabel(node.type)}</span>
         <NodeSummary node={node} />
         <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <IconButton
+            title="Add inside/after — lands in a legal spot automatically"
+            onClick={() => {
+              // Anchor smart placement to this card, not the previous selection.
+              useBuilderStore.getState().select(node.key);
+              useBuilderStore.getState().addSmart(promptTypeFor(node));
+            }}
+          >
+            ＋
+          </IconButton>
           <IconButton title="Duplicate" onClick={() => duplicateNode(node.key)}>
             ⧉
           </IconButton>
@@ -243,6 +282,15 @@ export function CanvasNode({ node, depth, tree, select, selectedKey, removeNode,
       />
     </div>
   );
+}
+
+/** What should the card's ＋ button add? Text Displays for Sections (their
+ *  whole purpose), buttons for Action Rows, a Text Display after everything
+ *  else. */
+function promptTypeFor(node: ComponentNode): ComponentType {
+  if (node.data.type === ComponentType.Section) return ComponentType.TextDisplay;
+  if (node.data.type === ComponentType.ActionRow) return ComponentType.Button;
+  return ComponentType.TextDisplay;
 }
 
 function NodeSummary({ node }: { node: ComponentNode }) {
@@ -357,9 +405,17 @@ function SectionBody({ node, depth, tree, ...rest }: NodeProps) {
           <CanvasNode {...rest} node={accessory} depth={depth + 1} tree={tree} />
         ) : (
           !hover && (
-            <div className="rounded-lg border border-dashed border-discord-muted/40 px-2 py-4 text-center text-[11px] text-discord-muted">
-              Accessory slot — drop a Button or Thumbnail
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const st = useBuilderStore.getState();
+                st.addComponent(ComponentType.Thumbnail, { parentKey: node.key, index: 0, slot: 'accessory' });
+              }}
+              title="Add a thumbnail here (click, or drag a Button/Thumbnail)"
+              className="w-full rounded-lg border border-dashed border-discord-muted/40 px-2 py-3 text-center text-[11px] text-discord-muted transition-colors hover:border-discord-accent hover:text-discord-text"
+            >
+              ＋ Add a thumbnail — or drag a Button/Thumbnail here
+            </button>
           )
         )}
       </div>
