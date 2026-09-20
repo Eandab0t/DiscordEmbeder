@@ -98,10 +98,10 @@ function kv(fields: [string, string][]): string {
   return fields.map(([key, value]) => `${key}=${value}`).join(', ');
 }
 
-/** `"<:name:id>"` for custom emoji, plain name for unicode. */
+/** `"<a:name:id>"` for animated custom emoji, `"<:name:id>"` static, plain name for unicode. */
 function emojiArg(emoji: { id?: string; name?: string; animated?: boolean } | undefined): string | null {
   if (!emoji) return null;
-  if (emoji.id) return pyString(`<:${emoji.name}:${emoji.id}>`);
+  if (emoji.id) return pyString(`<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`);
   if (emoji.name) return pyString(emoji.name);
   return null;
 }
@@ -215,8 +215,6 @@ function emit(data: Record<string, any>, depth: number): string[] {
       if (typeof data.min_values === 'number') fields.push(['min_values', String(data.min_values)]);
       if (typeof data.max_values === 'number') fields.push(['max_values', String(data.max_values)]);
       if (data.disabled) fields.push(['disabled', 'True']);
-      const emoji = emojiArg(data.emoji);
-      if (emoji) fields.push(['emoji', emoji]);
       for (const [key, value] of fields) out.push(`${ind(depth + 1)}${key}=${value},`);
       if (Array.isArray(data.channel_types) && data.channel_types.length > 0) {
         const names = data.channel_types.map((t: number) => `discord.ChannelType.${CHANNEL_TYPES[t] ?? t}`);
