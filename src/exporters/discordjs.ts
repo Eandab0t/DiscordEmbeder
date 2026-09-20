@@ -195,8 +195,11 @@ function emit(data: Record<string, any>, depth: number): string[] {
     case ComponentType.Button: {
       call('setLabel', JSON.stringify(String(data.label ?? '')));
       call('setStyle', `ButtonStyle.${BUTTON_STYLES[data.style] ?? 'Primary'}`);
-      if (data.emoji?.id) call('setEmoji', `{ id: ${JSON.stringify(String(data.emoji.id))} }`);
-      else if (data.emoji?.name) call('setEmoji', `{ name: ${JSON.stringify(String(data.emoji.name))} }`);
+      const emojiParts: string[] = [];
+      if (data.emoji?.id) emojiParts.push(`id: ${JSON.stringify(String(data.emoji.id))}`);
+      if (data.emoji?.name) emojiParts.push(`name: ${JSON.stringify(String(data.emoji.name))}`);
+      if (data.emoji?.animated) emojiParts.push('animated: true');
+      if (emojiParts.length > 0) call('setEmoji', `{ ${emojiParts.join(', ')} }`);
       if (data.style === ButtonStyle.Link) call('setURL', JSON.stringify(String(data.url ?? '')));
       else if (data.custom_id) call('setCustomId', JSON.stringify(String(data.custom_id)));
       if (data.disabled) call('setDisabled', 'true');
