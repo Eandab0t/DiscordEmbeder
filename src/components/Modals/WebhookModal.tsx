@@ -5,6 +5,22 @@ import type { ComponentNode, BotIdentity } from '../../model/node';
 import { Button, Field, TextInput } from '../ui/primitives';
 import { Modal } from './Modal';
 
+/** attachment:// references cannot be uploaded from the browser — Discord
+ *  rejects the whole payload with 400 {"components":["…"]}. */
+function attachmentRefs(tree: ComponentNode[]): string[] {
+  const refs: string[] = [];
+  const walk = (data: Record<string, unknown>) => {
+    const url = (data.file as { url?: unknown } | undefined)?.url ?? (data.media as { url?: unknown } | undefined)?.url;
+    if (typeof url === 'string' && url.startsWith('attachment://')) refs.push(url);
+    for (const key of ['components', 'items'] as const) {
+      ((data[key] as Record<string, unknown>[] | undefined) ?? []).forEach(walk);
+    }
+    if (data.accessory) walk(data.accessory as Record<string, unknown>);
+  };
+  tree.forEach((node) => walk(node.data as Record<string, unknown>));
+  return [...new Set(refs)];
+}
+
 export function WebhookModal({
   onClose,
   initialUrl,
@@ -26,7 +42,7 @@ export function WebhookModal({
     setStatus('sending');
     setMessage('');
     const trimmed = url.trim();
-    if (!/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//.test(trimmed)) {
+    if (!/^https:\/\/([a-z0-9-]+\.)*(discord|discordapp)\.com\/api\/webhooks\//i.test(trimmed)) {
       setStatus('error');
       setMessage('That doesn\'t look like a Discord webhook URL (expected https://discord.com/api/webhooks/…).');
       return;
@@ -52,9 +68,16 @@ export function WebhookModal({
         setStatus('ok');
         setMessage('Sent! Check the channel — this hit Discord\'s API directly from your browser.');
       } else {
-        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        const body = (await res.text().catch(() => '')) ?? '';
+        let detail = '';
+        try {
+          const parsed = JSON.parse(body) as { message?: string; [key: string]: unknown };
+          detail = parsed.message ?? JSON.stringify(parsed);
+        } catch {
+          detail = body || res.statusText;
+        }
         setStatus('error');
-        setMessage(`Discord returned ${res.status}: ${body?.message ?? res.statusText}`);
+        setMessage(`Discord returned ${res.status}: ${detail || 'request failed'}`);
       }
     } catch (e) {
       setStatus('error');
@@ -82,6 +105,13 @@ export function WebhookModal({
             placeholder="https://discord.com/api/webhooks/…"
           />
         </Field>
+        {attachmentRefs(tree).length > 0 && (
+          <div className="rounded border border-discord-yellow/40 bg-discord-yellow/10 p-2 text-[11px] leading-relaxed text-discord-yellow">
+            This message references uploaded files ({attachmentRefs(tree).join(', ')}). A browser test
+            send can't attach files, so Discord will reject it — remove the File/Thumbnail/Gallery
+            attachment:// references or send through your bot instead.
+          </div>
+        )}
         {message && (
           <div
             className={`rounded border p-2 text-xs ${
