@@ -1,10 +1,17 @@
-import type { Exporter } from './types';
+import { ButtonStyle, ComponentType, SeparatorSpacing } from '../model/discord-components-v2-schema';
+import type { TopLevelComponent } from '../model/discord-components-v2-schema';
+import { attachmentFileRefs } from './attachments';
+import type { Exporter, ExportContext } from './types';
 
 /**
- * Emits a discord.js snippet that passes the raw payload object to
- * channel.send / interaction.reply. Raw object literals are used
- * deliberately: they match the REST payload exactly and don't depend on
- * which builder classes the installed discord.js version exposes.
+ * Emits a discord.js v14.16+ snippet using the real Components V2 builder
+ * classes (verified against the discord.js guide and typed docs):
+ * ContainerBuilder, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder,
+ * MediaGalleryBuilder, MediaGalleryItemBuilder, FileBuilder, SeparatorBuilder,
+ * ActionRowBuilder, ButtonBuilder, and the five select menu builders.
+ *
+ * emit() returns bare lines with no trailing punctuation; the caller appends
+ * commas for argument/array contexts and closes its own parens.
  */
 export const discordJsExporter: Exporter = {
   id: 'discordjs',
@@ -12,84 +19,214 @@ export const discordJsExporter: Exporter = {
   language: 'javascript',
   fileExtension: 'js',
   generate: (payload, context) => {
-    const lines: string[] = [];
-    lines.push('// discord.js — send Components V2 with the raw API payload.');
-    lines.push('// Works on discord.js v14.16+ (Components V2 support).');
-    lines.push("// const { MessageFlags } = require('discord.js');");
-    lines.push('');
-    lines.push('const payload = {');
-    lines.push('  flags: MessageFlags.IsComponentsV2,');
-    lines.push('  components: ' + jsValue(payload) + ',');
-    lines.push('};');
-    lines.push('');
-    lines.push('await channel.send(payload);');
-    if (context.bot.username || context.bot.avatarUrl) {
-      lines.push('');
-      lines.push('// Webhook variant (username/avatar live on the webhook execute call):');
-      const override: Record<string, string> = {};
-      if (context.bot.username) override.username = context.bot.username;
-      if (context.bot.avatarUrl) override.avatar_url = context.bot.avatarUrl;
-      lines.push(
-        'await webhook.send({ ...payload, ' +
-          Object.entries(override)
-            .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-            .join(', ') +
-          ' });',
-      );
+    const elements = payload.map((component) => withComma(emit(component, 1)).join('\n'));
+    const body = elements.join('\n');
+    const imports = wrapDestructure(USED.filter((name) => body.includes(name) || name === 'MessageFlags'));
+    const lines = [
+      '// discord.js v14.16+ — Components V2 via builder classes.',
+      ...(imports ? [`const { ${imports} } = require('discord.js');`, ''] : []),
+      'const components = [',
+      body,
+      '];',
+      '',
+      'await channel.send({',
+      '  components,',
+      '  flags: MessageFlags.IsComponentsV2,',
+      '});',
+    ];
+    const fileRefs = attachmentFileRefs(payload);
+    if (fileRefs.length > 0) {
+      lines.push('', `// attachment:// references need matching files: [${fileRefs.map((f) => `'${f}'`).join(', ')}]`);
+    }
+    const kwargs: string[] = [];
+    if (context.bot.username) kwargs.push(`username: ${JSON.stringify(context.bot.username)}`);
+    if (context.bot.avatarUrl) kwargs.push(`avatar_url: ${JSON.stringify(context.bot.avatarUrl)}`);
+    if (kwargs.length > 0) {
+      lines.push('', '// Webhook variant:');
+      lines.push(`await webhook.send({ components, flags: MessageFlags.IsComponentsV2, ${kwargs.join(', ')} });`);
     }
     return lines.join('\n');
   },
 };
 
-function jsValue(value: unknown): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  switch (typeof value) {
-    case 'string':
-      return JSON.stringify(value);
-    case 'number':
-      return String(value);
-    case 'boolean':
-      return String(value);
-    case 'object': {
-      if (Array.isArray(value)) {
-        if (value.length === 0) return '[]';
-        const items = value.map((v) => jsValue(v));
-        // One line for short primitive arrays, else multiline.
-        const inline = '[' + items.join(', ') + ']';
-        if (inline.length <= 80 && items.every((i) => !i.includes('\n'))) return inline;
-        return '[\n' + items.map((i) => '    ' + indentBlock(i)).join(',\n') + ',\n  ]';
-      }
-      const entries = Object.entries(value as Record<string, unknown>).filter(
-        ([, v]) => v !== undefined,
-      );
-      if (entries.length === 0) return '{}';
-      const inline =
-        '{ ' +
-        entries.map(([k, v]) => `${/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : JSON.stringify(k)}: ${jsValue(v)}`).join(', ') +
-        ' }';
-      if (inline.length <= 80 && !inline.includes('\n')) return inline;
-      return (
-        '{\n' +
-        entries
-          .map(([k, v]) => {
-            const keyExpr = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : JSON.stringify(k);
-            return `    ${keyExpr}: ${indentBlock(jsValue(v))}`;
-          })
-          .join(',\n') +
-        ',\n  }'
-      );
+const USED = [
+  'ContainerBuilder',
+  'SectionBuilder',
+  'TextDisplayBuilder',
+  'ThumbnailBuilder',
+  'MediaGalleryBuilder',
+  'MediaGalleryItemBuilder',
+  'FileBuilder',
+  'SeparatorBuilder',
+  'SeparatorSpacingSize',
+  'ActionRowBuilder',
+  'ButtonBuilder',
+  'StringSelectMenuBuilder',
+  'UserSelectMenuBuilder',
+  'RoleSelectMenuBuilder',
+  'MentionableSelectMenuBuilder',
+  'ChannelSelectMenuBuilder',
+  'ButtonStyle',
+  'MessageFlags',
+];
+
+function wrapDestructure(names: string[]): string {
+  if (names.length === 0) return '';
+  const lines: string[] = [];
+  let current = '';
+  for (const name of names) {
+    const next = current ? `${current}, ${name}` : name;
+    if (next.length > 70 && current) {
+      lines.push(current + ',');
+      current = '  ' + name;
+    } else {
+      current = next;
     }
-    default:
-      return 'undefined';
+  }
+  lines.push(current);
+  return lines.join('\n');
+}
+
+/** Appends a comma to the last line (argument/array separator). */
+function withComma(lines: string[]): string[] {
+  lines[lines.length - 1] += ',';
+  return lines;
+}
+
+const BUTTON_STYLES: Record<number, string> = {
+  [ButtonStyle.Primary]: 'Primary',
+  [ButtonStyle.Secondary]: 'Secondary',
+  [ButtonStyle.Success]: 'Success',
+  [ButtonStyle.Danger]: 'Danger',
+  [ButtonStyle.Link]: 'Link',
+};
+
+const SELECT_BUILDERS: Record<number, string> = {
+  [ComponentType.StringSelect]: 'StringSelectMenuBuilder',
+  [ComponentType.UserSelect]: 'UserSelectMenuBuilder',
+  [ComponentType.RoleSelect]: 'RoleSelectMenuBuilder',
+  [ComponentType.MentionableSelect]: 'MentionableSelectMenuBuilder',
+  [ComponentType.ChannelSelect]: 'ChannelSelectMenuBuilder',
+};
+
+const CONTAINER_ADD: Partial<Record<ComponentType, string>> = {
+  [ComponentType.TextDisplay]: 'addTextDisplayComponents',
+  [ComponentType.Section]: 'addSectionComponents',
+  [ComponentType.MediaGallery]: 'addMediaGalleryComponents',
+  [ComponentType.File]: 'addFileComponents',
+  [ComponentType.Separator]: 'addSeparatorComponents',
+  [ComponentType.ActionRow]: 'addActionRowComponents',
+};
+
+const ind = (depth: number) => '  '.repeat(depth);
+
+/** One builder chain per call. Chain methods sit one level under `new`. */
+function emit(data: Record<string, any>, depth: number): string[] {
+  const out: string[] = [`${ind(depth)}new ${builderName(data.type)}()`];
+  const call = (method: string, args = '') => out.push(`${ind(depth + 1)}.${method}(${args})`);
+  // `.method(` + children + `)` — chain continues after the close.
+  const wrap = (method: string, children: Record<string, any>[], extraDepth = 0) => {
+    out.push(`${ind(depth + 1)}.${method}(`);
+    for (const child of children) out.push(...withComma(emit(child, depth + 2 + extraDepth)));
+    out.push(`${ind(depth + 1)})`);
+  };
+
+  switch (data.type) {
+    case ComponentType.Container: {
+      if (typeof data.accent_color === 'number') {
+        call('setAccentColor', '0x' + data.accent_color.toString(16).padStart(6, '0'));
+      }
+      if (data.spoiler) call('setSpoiler', 'true');
+      for (const child of data.components ?? []) {
+        const method = CONTAINER_ADD[child.type as ComponentType];
+        if (method) wrap(method, [child]);
+      }
+      return out;
+    }
+    case ComponentType.Section: {
+      const texts = (data.components ?? []).filter((c: Record<string, any>) => c.type === ComponentType.TextDisplay);
+      if (texts.length > 0) wrap('addTextDisplayComponents', texts);
+      const acc = data.accessory;
+      if (acc?.type === ComponentType.Button) wrap('setButtonAccessory', [acc]);
+      else if (acc?.type === ComponentType.Thumbnail) wrap('setThumbnailAccessory', [acc]);
+      return out;
+    }
+    case ComponentType.TextDisplay: {
+      call('setContent', JSON.stringify(typeof data.content === 'string' ? data.content : ''));
+      return out;
+    }
+    case ComponentType.Thumbnail: {
+      call('setURL', JSON.stringify(String(data.media?.url ?? '')));
+      if (data.description) call('setDescription', JSON.stringify(String(data.description)));
+      if (data.spoiler) call('setSpoiler', 'true');
+      return out;
+    }
+    case ComponentType.MediaGallery: {
+      out.push(`${ind(depth + 1)}.addItems(`);
+      for (const item of data.items ?? []) {
+        const itemLines = [`${ind(depth + 2)}new MediaGalleryItemBuilder()`];
+        itemLines.push(`${ind(depth + 3)}.setURL(${JSON.stringify(String(item.media?.url ?? ''))})`);
+        if (item.description) {
+          itemLines.push(`${ind(depth + 3)}.setDescription(${JSON.stringify(String(item.description))})`);
+        }
+        if (item.spoiler) itemLines.push(`${ind(depth + 3)}.setSpoiler(true)`);
+        out.push(...withComma(itemLines));
+      }
+      out.push(`${ind(depth + 1)})`);
+      return out;
+    }
+    case ComponentType.Separator: {
+      if (data.divider === false) call('setDivider', 'false');
+      if (typeof data.spacing === 'number') {
+        call('setSpacing', `SeparatorSpacingSize.${SeparatorSpacing[data.spacing]}`);
+      }
+      return out;
+    }
+    case ComponentType.File: {
+      call('setURL', JSON.stringify(String(data.file?.url ?? '')));
+      if (data.spoiler) call('setSpoiler', 'true');
+      return out;
+    }
+    case ComponentType.ActionRow: {
+      const kids = data.components ?? [];
+      if (kids.length > 0) wrap('addComponents', kids);
+      return out;
+    }
+    case ComponentType.Button: {
+      call('setLabel', JSON.stringify(String(data.label ?? '')));
+      call('setStyle', `ButtonStyle.${BUTTON_STYLES[data.style] ?? 'Primary'}`);
+      if (data.emoji?.id) call('setEmoji', `{ id: ${JSON.stringify(String(data.emoji.id))} }`);
+      else if (data.emoji?.name) call('setEmoji', `{ name: ${JSON.stringify(String(data.emoji.name))} }`);
+      if (data.style === ButtonStyle.Link) call('setURL', JSON.stringify(String(data.url ?? '')));
+      else if (data.custom_id) call('setCustomId', JSON.stringify(String(data.custom_id)));
+      if (data.disabled) call('setDisabled', 'true');
+      return out;
+    }
+    default: {
+      // Select menus: String/User/Role/Mentionable/Channel.
+      call('setCustomId', JSON.stringify(String(data.custom_id ?? '')));
+      if (data.placeholder) call('setPlaceholder', JSON.stringify(String(data.placeholder)));
+      if (typeof data.min_values === 'number') call('setMinValues', String(data.min_values));
+      if (typeof data.max_values === 'number') call('setMaxValues', String(data.max_values));
+      if (data.disabled) call('setDisabled', 'true');
+      if (Array.isArray(data.options) && data.options.length > 0) {
+        // RestOrArray accepts a single array argument.
+        call('addOptions', JSON.stringify(data.options));
+      }
+      return out;
+    }
   }
 }
 
-function indentBlock(text: string): string {
-  return text
-    .split('\n')
-    .map((line, i) => (i === 0 ? line : '  ' + line))
-    .join('\n');
+function builderName(type: ComponentType): string {
+  if (type === ComponentType.Container) return 'ContainerBuilder';
+  if (type === ComponentType.Section) return 'SectionBuilder';
+  if (type === ComponentType.TextDisplay) return 'TextDisplayBuilder';
+  if (type === ComponentType.Thumbnail) return 'ThumbnailBuilder';
+  if (type === ComponentType.MediaGallery) return 'MediaGalleryBuilder';
+  if (type === ComponentType.Separator) return 'SeparatorBuilder';
+  if (type === ComponentType.File) return 'FileBuilder';
+  if (type === ComponentType.ActionRow) return 'ActionRowBuilder';
+  if (type === ComponentType.Button) return 'ButtonBuilder';
+  return SELECT_BUILDERS[type] ?? 'TextDisplayBuilder';
 }
-
-
