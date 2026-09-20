@@ -420,6 +420,27 @@ export function validateTree(tree: ComponentNode[]): ValidationIssue[] {
     visit(n);
   }
 
+  // custom_id must be unique across every interactive component in the message.
+  const customIdOwners = new Map<string, string>();
+  const walkForIds = (node: ComponentNode) => {
+    const id = (node.data as { custom_id?: string }).custom_id;
+    if (node.data.type !== ComponentType.Thumbnail && typeof id === 'string' && id) {
+      const previous = customIdOwners.get(id);
+      if (previous) {
+        issues.push({
+          severity: 'error',
+          message: `custom_id "${id}" is used by both ${previous} and ${nodeLabel(node.type)} — custom_id must be unique within a message.`,
+          nodeKey: node.key,
+        });
+      } else {
+        customIdOwners.set(id, nodeLabel(node.type));
+      }
+    }
+    for (const child of node.children) walkForIds(child);
+    if (isSectionNode(node) && node.accessory) walkForIds(node.accessory);
+  };
+  for (const n of tree) walkForIds(n);
+
   if (tree.length === 0) {
     issues.push({
       severity: 'warning',
