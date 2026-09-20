@@ -233,6 +233,13 @@ describe('validateTree', () => {
     const tree = [{ type: CT.ActionRow, components: [select(), select()] } as DiscordData];
     expect(has(issuesFor(tree), 'OR exactly one select menu')).toBe(true);
   });
+
+  it('flags duplicate custom_id across interactive components', () => {
+    const dupes = [{ type: CT.ActionRow, components: [btn('same'), btn('same')] } as DiscordData];
+    expect(has(issuesFor(dupes), 'must be unique')).toBe(true);
+    const distinct = [{ type: CT.ActionRow, components: [btn('a'), btn('b')] } as DiscordData];
+    expect(has(issuesFor(distinct), 'must be unique')).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -333,7 +340,12 @@ describe('parsePayloadJson', () => {
 // ---------------------------------------------------------------------------
 
 describe('exporters', () => {
-  const payload = buildPayload([nd({ type: CT.Container, components: [td('a')], accent_color: null, spoiler: true } as DiscordData)]);
+  const payload = buildPayload([
+    nd({ type: CT.Container, components: [td('a')], accent_color: 0x5865f2, spoiler: true } as DiscordData),
+    nd({ type: CT.Section, components: [td('s')], accessory: thumb() } as DiscordData),
+    nd(gallery(2)),
+    nd({ type: CT.ActionRow, components: [btn('x'), select()] } as DiscordData),
+  ]);
   const ctx = { bot: { username: 'My Bot', avatarUrl: '' }, flags: IS_COMPONENTS_V2 };
   const byId = (id: string) => EXPORTERS.find((e) => e.id === id)!;
 
@@ -347,18 +359,49 @@ describe('exporters', () => {
     expect(parsed.components).toEqual(JSON.parse(JSON.stringify(payload)));
   });
 
-  it('discord.js output uses MessageFlags.IsComponentsV2 and honors bot identity', () => {
+  it('discord.js output uses the real builder classes with the V2 flag', () => {
     const out = byId('discordjs').generate(payload, ctx);
-    expect(out).toContain('MessageFlags.IsComponentsV2');
-    expect(out).toContain('channel.send(payload)');
-    expect(out).toContain('username: "My Bot"');
+    expect(out).toContain("require('discord.js')");
+    expect(out).toContain('new ContainerBuilder()');
+    expect(out).toContain('.setAccentColor(');
+    expect(out).toContain('.setSpoiler(true)');
+    expect(out).toContain('new TextDisplayBuilder()');
+    expect(out).toContain('.setContent("a")');
+    expect(out).toContain('new ThumbnailBuilder()');
+    expect(out).toContain('.setURL("https://x/t.png")');
+    expect(out).toContain('new MediaGalleryBuilder()');
+    expect(out).toContain('new MediaGalleryItemBuilder()');
+    expect(out).toContain('new ActionRowBuilder()');
+    expect(out).toContain('new ButtonBuilder()');
+    expect(out).toContain('ButtonStyle.Primary');
+    expect(out).toContain('.setCustomId("x")');
+    expect(out).toContain('new StringSelectMenuBuilder()');
+    expect(out).toContain('.addOptions(');
+    expect(out).toContain('flags: MessageFlags.IsComponentsV2');
+    // No raw payload leakage: every component goes through a builder.
+    expect(out).not.toMatch(/"type":\s*\d/);
     expect(byId('discordjs').generate(payload, { bot: { username: '', avatarUrl: '' }, flags: IS_COMPONENTS_V2 })).not.toContain('webhook.send');
   });
 
-  it('discord.py output contains no JSON-isms (true/false/null/undefined)', () => {
+  it('discord.py output is runnable LayoutView code with no JSON-isms', () => {
     const out = byId('discordpy').generate(payload, ctx);
-    expect(out).toContain('IS_COMPONENTS_V2');
-    expect(out).toContain('True');
+    expect(out).toContain('ui.LayoutView(timeout=None)');
+    expect(out).toContain('ui.Container(');
+    expect(out).toContain('accent_colour=');
+    expect(out).toContain('spoiler=True');
+    expect(out).toContain('ui.TextDisplay("a")');
+    expect(out).toContain('ui.Section(');
+    expect(out).toContain('accessory=ui.Thumbnail("https://x/t.png")');
+    expect(out).toContain('ui.MediaGallery(');
+    expect(out).toContain('discord.MediaGalleryItem(');
+    expect(out).toContain('ui.ActionRow(');
+    expect(out).toContain('ui.Button(');
+    expect(out).toContain('discord.ButtonStyle.primary');
+    expect(out).toContain('custom_id="x"');
+    expect(out).toContain('ui.Select(');
+    expect(out).toContain('options=[');
+    expect(out).toContain('discord.SelectOption(label="a", value="a")');
+    expect(out).toContain('await channel.send(view=build_view())');
     expect(out).not.toMatch(/: (true|false|null|undefined)\b/);
   });
 
