@@ -188,4 +188,34 @@ describe('custom templates', () => {
     const { useBuilderStore: fresh2 } = await import('./store/useBuilderStore');
     expect(fresh2.getState().customTemplates).toHaveLength(0);
   });
+
+  it('webhook presets: save → record status → persist across reload → delete', async () => {
+    const store = await load();
+    let s = store.getState();
+    s.saveWebhookPreset('#announcements', 'https://discord.com/api/webhooks/123/abc');
+    s = store.getState();
+    expect(s.webhookPresets).toHaveLength(1);
+    expect(s.webhookPresets[0].lastSend).toBeNull();
+
+    const ok = s.recordWebhookSend(s.webhookPresets[0].id, true, 'Sent!');
+    s = store.getState();
+    expect(s.webhookPresets[0].lastSend?.ok).toBe(true);
+    expect(s.webhookPresets[0].lastSend?.detail).toBe('Sent!');
+    expect(ok).toBeUndefined();
+
+    s.recordWebhookSend(s.webhookPresets[0].id, false, 'Discord returned 404: Unknown Webhook');
+    s = store.getState();
+    expect(s.webhookPresets[0].lastSend?.ok).toBe(false);
+
+    // Fresh module registry — the persisted list must survive a reload.
+    vi.resetModules();
+    const { useBuilderStore: fresh } = await import('./store/useBuilderStore');
+    expect(fresh.getState().webhookPresets).toHaveLength(1);
+    expect(fresh.getState().webhookPresets[0].name).toBe('#announcements');
+
+    fresh.getState().deleteWebhookPreset(fresh.getState().webhookPresets[0].id);
+    vi.resetModules();
+    const { useBuilderStore: fresh2 } = await import('./store/useBuilderStore');
+    expect(fresh2.getState().webhookPresets).toHaveLength(0);
+  });
 });

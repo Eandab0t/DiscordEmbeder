@@ -4,7 +4,9 @@ A visual, drag-and-drop builder for **Discord's Components V2** message system �
 "structured Scratch": blocks snap only into legal Discord parent/child slots,
 with multi-language code export, live preview, and local project files.
 
-![stack](https://img.shields.io/badge/Vite-React-TypeScript-blue) ![tailwind](https://img.shields.io/badge/Tailwind_v4-dark_theme-38bdf8)
+![stack](https://img.shields.io/badge/Vite-React-TypeScript-blue) ![tailwind](https://img.shields.io/badge/Tailwind_v4-dark_theme-38bdf8) [![CI](https://github.com/Eandab0t/DiscordEmbeder/actions/workflows/ci.yml/badge.svg)](https://github.com/Eandab0t/DiscordEmbeder/actions/workflows/ci.yml) [![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
+MIT licensed — see [LICENSE](./LICENSE).
 
 ## Run it
 
@@ -36,6 +38,11 @@ It runs from `file://` with no server.
 | **Templates** | 10 starters (announcement, patch notes, release, welcome, event invite, FAQ, rules, feedback form, …) plus save-your-own |
 | **Modes** | **Simple** (click-to-add guided flow) and **Advanced** (full drag-and-drop) — toggled in the toolbar |
 | **Send test** | Paste a webhook URL, hit send: `?with_components=true` is appended, the V2 flag is set, Discord's own error bodies surface verbatim, and `attachment://` references warn before the (doomed) attempt. Accepts `ptb.`/`canary.` subdomains. |
+| **Saved webhooks** | Name and store webhook URLs in the send-test modal (localStorage-persisted); one-click **Resend** of the current design through any saved webhook, with per-preset last-send status (✓/✗, time, Discord's response) and delete. |
+
+## License
+
+[MIT](./LICENSE) © Eandab0t
 
 ## Architecture
 

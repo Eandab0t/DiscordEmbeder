@@ -22,6 +22,13 @@ export interface SavedTemplate {
   components: TopLevelComponent[];
 }
 
+export interface WebhookPreset {
+  id: string;
+  name: string;
+  url: string;
+  lastSend: { at: string; ok: boolean; detail: string } | null;
+}
+
 interface Snapshot {
   tree: ComponentNode[];
   selectedKey: string | null;
@@ -74,6 +81,12 @@ export interface BuilderState {
   customTemplates: SavedTemplate[];
   saveTemplate: (name: string) => void;
   deleteTemplate: (id: string) => void;
+
+  /** Named webhook URLs for one-click re-sends, persisted to localStorage. */
+  webhookPresets: WebhookPreset[];
+  saveWebhookPreset: (name: string, url: string) => void;
+  deleteWebhookPreset: (id: string) => void;
+  recordWebhookSend: (id: string, ok: boolean, detail: string) => void;
   /** Click-to-add: appends the block wherever it legally fits, wrapping in
    *  a parent (Action Row / Section) when the type needs one. */
   addSmart: (type: ComponentType) => OperationResult;
@@ -85,6 +98,7 @@ export interface BuilderState {
 
 const HISTORY_LIMIT = 100;
 const CUSTOM_TEMPLATES_KEY = 'discord-embeder:custom-templates:v1';
+const WEBHOOK_PRESETS_KEY = 'discord-embeder:webhook-presets:v1';
 
 function loadCustomTemplates(): SavedTemplate[] {
   try {
@@ -100,6 +114,23 @@ function persistCustomTemplates(templates: SavedTemplate[]): void {
     localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
   } catch {
     // Storage full or unavailable — template persistence is best-effort.
+  }
+}
+
+function loadWebhookPresets(): WebhookPreset[] {
+  try {
+    const raw = localStorage.getItem(WEBHOOK_PRESETS_KEY);
+    return raw ? (JSON.parse(raw) as WebhookPreset[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistWebhookPresets(presets: WebhookPreset[]): void {
+  try {
+    localStorage.setItem(WEBHOOK_PRESETS_KEY, JSON.stringify(presets));
+  } catch {
+    // Storage full or unavailable — preset persistence is best-effort.
   }
 }
 
@@ -197,6 +228,7 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
     lastRejected: null,
 
     customTemplates: loadCustomTemplates(),
+    webhookPresets: loadWebhookPresets(),
     saveTemplate: (name) => {
       const state = get();
       const template: SavedTemplate = {
@@ -213,6 +245,32 @@ export const useBuilderStore = create<BuilderState>()((set, get) => {
       const next = get().customTemplates.filter((t) => t.id !== id);
       set({ customTemplates: next });
       persistCustomTemplates(next);
+    },
+
+    webhookPresets: loadWebhookPresets(),
+    saveWebhookPreset: (name, url) => {
+      const state = get();
+      const preset: WebhookPreset = {
+        id: `w${Date.now()}`,
+        name,
+        url,
+        lastSend: null,
+      };
+      const next = [preset, ...state.webhookPresets];
+      set({ webhookPresets: next });
+      persistWebhookPresets(next);
+    },
+    deleteWebhookPreset: (id) => {
+      const next = get().webhookPresets.filter((p) => p.id !== id);
+      set({ webhookPresets: next });
+      persistWebhookPresets(next);
+    },
+    recordWebhookSend: (id, ok, detail) => {
+      const next = get().webhookPresets.map((p) =>
+        p.id === id ? { ...p, lastSend: { at: new Date().toISOString(), ok, detail } } : p,
+      );
+      set({ webhookPresets: next });
+      persistWebhookPresets(next);
     },
 
     mode: (() => {

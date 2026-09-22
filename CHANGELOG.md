@@ -8,6 +8,12 @@ matches a merged PR.
 
 ### Added
 
+- **Saved webhooks**: webhook URLs can be named and saved in the send-test
+  modal (persisted to localStorage, surviving reloads), then re-used with
+  one click — **Resend** fires the *current* design through a saved webhook
+  without re-pasting the URL. Each preset shows its last-send status
+  (✓/✗, timestamp, and Discord's own response detail) and can be deleted;
+  Resend is disabled while the `attachment://` warning is active.
 - Webhook test-send now warns **before** sending when the design references
   `attachment://` uploads — Discord always rejects such payloads from a browser
   POST (`400 {"components":["…"]}`), so the modal says so up front.
